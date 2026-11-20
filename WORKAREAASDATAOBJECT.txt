@@ -1,0 +1,106 @@
+REPORT Z_WORKAREAASDATAOBJECT.
+
+*---------------------------------------------------------------------*
+* EXAMPLE 1: STUDENT
+*---------------------------------------------------------------------*
+WRITE: / 'WORK AREA AS DATA OBJECT - STUDENT'.
+ULINE.
+
+DATA: BEGIN OF wa1,
+        sid   TYPE n LENGTH 3,
+        sname TYPE c LENGTH 15,
+        sfee  TYPE i,
+        sdob  TYPE d,
+        scity TYPE c LENGTH 13,
+      END OF wa1.
+
+wa1-sid   = 111.
+wa1-sname = 'Naruto'.
+wa1-sfee  = 23493.
+wa1-sdob  = '20040522'.
+wa1-scity = 'SIDDIPET'.
+
+WRITE: / 'STUDENT ID   :', wa1-sid,
+       / 'STUDENT NAME :', wa1-sname,
+       / 'STUDENT FEE  :', wa1-sfee,
+       / 'STUDENT DOB  :', wa1-sdob,
+       / 'STUDENT CITY :', wa1-scity.
+
+ULINE.
+
+*---------------------------------------------------------------------*
+* EXAMPLE 2: EMPLOYEE
+*---------------------------------------------------------------------*
+WRITE: / 'WORK AREA AS DATA OBJECT - EMPLOYEE'.
+ULINE.
+
+DATA: BEGIN OF wa2,
+        empid TYPE n LENGTH 4,
+        ename TYPE c LENGTH 20,
+        esal  TYPE i,
+        dept  TYPE c LENGTH 15,
+      END OF wa2.
+
+wa2-empid = 2001.
+wa2-ename = 'SASUKE'.
+wa2-esal  = 50000.
+wa2-dept  = 'IT'.
+
+WRITE: / 'EMP ID  :', wa2-empid,
+       / 'NAME    :', wa2-ename,
+       / 'SALARY  :', wa2-esal,
+       / 'DEPT    :', wa2-dept.
+
+ULINE.
+
+*---------------------------------------------------------------------*
+* EXAMPLE 3: PRODUCT
+*---------------------------------------------------------------------*
+WRITE: / 'WORK AREA AS DATA OBJECT - PRODUCT'.
+ULINE.
+
+DATA: BEGIN OF wa3,
+        pid   TYPE n LENGTH 3,
+        pname TYPE c LENGTH 20,
+        price TYPE i,
+        brand TYPE c LENGTH 15,
+      END OF wa3.
+
+wa3-pid   = 501.
+wa3-pname = 'LAPTOP'.
+wa3-price = 55000.
+wa3-brand = 'DELL'.
+
+WRITE: / 'PRODUCT ID :', wa3-pid,
+       / 'NAME       :', wa3-pname,
+       / 'PRICE      :', wa3-price,
+       / 'BRAND      :', wa3-brand.
+
+ULINE.
+
+*---------------------------------------------------------------------*
+* EXAMPLE 4: VEHICLE
+*---------------------------------------------------------------------*
+WRITE: / 'WORK AREA AS DATA OBJECT - VEHICLE'.
+ULINE.
+
+DATA: BEGIN OF wa4,
+        vid   TYPE n LENGTH 3,
+        vname TYPE c LENGTH 20,
+        model TYPE c LENGTH 10,
+        price TYPE i,
+      END OF wa4.
+
+wa4-vid   = 301.
+wa4-vname = 'CAR'.
+wa4-model = '2024'.
+wa4-price = 800000.
+
+WRITE: / 'VEHICLE ID :', wa4-vid,
+       / 'NAME       :', wa4-vname,
+       / 'MODEL      :', wa4-model,
+       / 'PRICE      :', wa4-price.
+
+ULINE.
+
+WRITE: / '===== END OF PROGRAM ====='.

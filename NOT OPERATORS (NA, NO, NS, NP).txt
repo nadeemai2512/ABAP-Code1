@@ -1,0 +1,53 @@
+REPORT Z_STRINGOPERATORS1.
+
+* ========== 1. NA - NOT ANY ==========
+WRITE: / '1. NA - NOT ANY'.
+
+DATA: A1 TYPE STRING VALUE 'ABCD',
+      A2 TYPE STRING VALUE '123'.
+
+IF A1 NA A2.
+  WRITE: 'No digits'.
+ELSE.
+  WRITE: 'Has digits'.
+ENDIF.
+ULINE.
+
+* ========== 2. NO - NOT ONLY ==========
+WRITE: / '2. NO - NOT ONLY'.
+
+DATA: O1 TYPE STRING VALUE 'ABC123',
+      O2 TYPE STRING VALUE 'ABC'.
+
+IF O1 CN O2.
+  WRITE: 'Has other chars besides ABC'.
+ELSE.
+  WRITE: 'Only ABC'.
+ENDIF.
+ULINE.
+
+* ========== 3. NS - NOT STRING ==========
+WRITE: / '3. NS - NOT STRING'.
+
+DATA: N1 TYPE STRING VALUE 'SUNRISERS',
+      N2 TYPE STRING VALUE 'ROYAL'.
+
+IF N1 NS N2.
+  WRITE: 'Not contains ROYAL'.
+ELSE.
+  WRITE: 'Contains ROYAL'.
+ENDIF.
+ULINE.
+
+* ========== 4. NP - NOT PATTERN ==========
+WRITE: / '4. NP - NOT PATTERN'.
+
+DATA: P1(3) VALUE 'SRH',
+      P2(3) VALUE 'SR*'.
+
+IF P1 NP P2.
+  WRITE: 'Pattern not matched'.
+ELSE.
+  WRITE: 'Pattern matched'.
+ENDIF.
+ULINE.

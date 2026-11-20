@@ -1,0 +1,81 @@
+REPORT Z_SELECT_OPTION.
+*---------------------------------------------------------------------*
+* EXAMPLE - 1 : PARAMETERS
+*---------------------------------------------------------------------*
+PARAMETERS:
+  A TYPE I,
+  B TYPE I DEFAULT 22,
+  C TYPE I,
+  D TYPE I,
+  E(10) TYPE C.
+
+*---------------------------------------------------------------------*
+* EXAMPLE - 2 : CHECKBOX AND RADIOBUTTON
+*---------------------------------------------------------------------*
+PARAMETERS:
+  CHK1 AS CHECKBOX,
+  R1 RADIOBUTTON GROUP GR1,
+  R2 RADIOBUTTON GROUP GR1,
+  R3 RADIOBUTTON GROUP GR1.
+
+*---------------------------------------------------------------------*
+* EXAMPLE - 3 : SELECT-OPTIONS
+*---------------------------------------------------------------------*
+TABLES: MARA.
+
+SELECT-OPTIONS:
+  S_MATNR FOR MARA-MATNR.
+
+*---------------------------------------------------------------------*
+* START-OF-SELECTION
+*---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+*---------------------------------------------------------------------*
+* OUTPUT FOR EXAMPLE - 1
+*---------------------------------------------------------------------*
+WRITE: / 'EXAMPLE - 1 OUTPUT'.
+WRITE: / 'A = ', A.
+WRITE: / 'B = ', B.
+WRITE: / 'C = ', C.
+WRITE: / 'D = ', D.
+WRITE: / 'E = ', E.
+
+SKIP.
+
+*---------------------------------------------------------------------*
+* OUTPUT FOR EXAMPLE - 2
+*---------------------------------------------------------------------*
+WRITE: / 'EXAMPLE - 2 OUTPUT'.
+
+IF CHK1 = 'X'.
+  WRITE: / 'CHECKBOX SELECTED'.
+ELSE.
+  WRITE: / 'CHECKBOX NOT SELECTED'.
+ENDIF.
+
+IF R1 = 'X'.
+  WRITE: / 'RADIO BUTTON R1 SELECTED'.
+ELSEIF R2 = 'X'.
+  WRITE: / 'RADIO BUTTON R2 SELECTED'.
+ELSEIF R3 = 'X'.
+  WRITE: / 'RADIO BUTTON R3 SELECTED'.
+ENDIF.
+
+SKIP.
+
+*---------------------------------------------------------------------*
+* OUTPUT FOR EXAMPLE - 3
+*---------------------------------------------------------------------*
+WRITE: / 'EXAMPLE - 3 OUTPUT'.
+
+SELECT *
+  FROM MARA
+  INTO MARA
+  WHERE MATNR IN S_MATNR.
+
+  WRITE: / MARA-MATNR,
+           MARA-MTART,
+           MARA-MATKL.
+
+ENDSELECT.

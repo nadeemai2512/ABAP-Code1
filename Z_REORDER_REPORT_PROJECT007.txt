@@ -1,0 +1,441 @@
+REPORT Z_REORDER_REPORT_PROJECT007.
+
+
+*&---------------------------------------------------------------------*
+*& Type Definitions
+*&---------------------------------------------------------------------*
+TYPES: BEGIN OF ty_final,
+         werks       TYPE werks_d,
+         matnr       TYPE matnr,
+         maktx       TYPE maktx,
+         mtart       TYPE mtart,
+         matkl       TYPE matkl,
+         minbe       TYPE minbe,
+         bstmi       TYPE bstmi,
+         total_stock TYPE labst,
+         shortage    TYPE p DECIMALS 3,
+         stprs       TYPE stprs,
+         order_value TYPE p DECIMALS 2,
+         currency    TYPE waers,
+         below_rl    TYPE c LENGTH 1,
+       END OF ty_final.
+
+TYPES: BEGIN OF ty_mara,
+         matnr TYPE matnr,
+         mtart TYPE mtart,
+         matkl TYPE matkl,
+       END OF ty_mara.
+
+TYPES: BEGIN OF ty_marc,
+         matnr TYPE matnr,
+         werks TYPE werks_d,
+         minbe TYPE minbe,
+         bstmi TYPE bstmi,
+       END OF ty_marc.
+
+TYPES: BEGIN OF ty_mard,
+         matnr TYPE matnr,
+         werks TYPE werks_d,
+         lgort TYPE lgort_d,
+         labst TYPE labst,
+       END OF ty_mard.
+
+TYPES: BEGIN OF ty_makt,
+         matnr TYPE matnr,
+         spras TYPE spras,
+         maktx TYPE maktx,
+       END OF ty_makt.
+
+TYPES: BEGIN OF ty_mbew,
+         matnr TYPE matnr,
+         bwkey TYPE bwkey,
+         stprs TYPE stprs,
+       END OF ty_mbew.
+
+*&---------------------------------------------------------------------*
+*& Internal Tables and Work Areas
+*&---------------------------------------------------------------------*
+DATA: it_mara    TYPE STANDARD TABLE OF ty_mara,
+      it_marc    TYPE STANDARD TABLE OF ty_marc,
+      it_mard    TYPE STANDARD TABLE OF ty_mard,
+      it_makt    TYPE STANDARD TABLE OF ty_makt,
+      it_mbew    TYPE STANDARD TABLE OF ty_mbew,
+      it_final   TYPE STANDARD TABLE OF ty_final,
+      it_display TYPE STANDARD TABLE OF ty_final.
+
+DATA: wa_mara  TYPE ty_mara,
+      wa_marc  TYPE ty_marc,
+      wa_mard  TYPE ty_mard,
+      wa_makt  TYPE ty_makt,
+      wa_mbew  TYPE ty_mbew,
+      wa_final TYPE ty_final.
+
+*&---------------------------------------------------------------------*
+*& Selection Screen Variables
+*&---------------------------------------------------------------------*
+DATA: dv_werks TYPE marc-werks,
+      dv_mtart TYPE mara-mtart,
+      dv_matkl TYPE mara-matkl,
+      dv_matnr TYPE mara-matnr.
+
+*&---------------------------------------------------------------------*
+*& Selection Screen
+*&---------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+  SELECT-OPTIONS: s_werks FOR dv_werks OBLIGATORY,
+                  s_mtart FOR dv_mtart,
+                  s_matkl FOR dv_matkl,
+                  s_matnr FOR dv_matnr.
+SELECTION-SCREEN END OF BLOCK b1.
+
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-002.
+  PARAMETERS: rb_all   RADIOBUTTON GROUP gr1 DEFAULT 'X',
+              rb_short RADIOBUTTON GROUP gr1.
+SELECTION-SCREEN END OF BLOCK b2.
+
+*&---------------------------------------------------------------------*
+*& Initialization
+*&---------------------------------------------------------------------*
+INITIALIZATION.
+  %_s_werks_%_app_%-text = 'Plant (Required)'.
+  %_s_mtart_%_app_%-text = 'Material Type'.
+  %_s_matkl_%_app_%-text = 'Material Group'.
+  %_s_matnr_%_app_%-text = 'Material Number'.
+  %_rb_all_%_app_%-text = 'All Materials'.
+  %_rb_short_%_app_%-text = 'Below Reorder Level Only'.
+
+*&---------------------------------------------------------------------*
+*& At Selection Screen - Validations
+*&---------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+  PERFORM validate_plant.
+  PERFORM validate_mattype.
+  PERFORM validate_matgroup.
+
+*&---------------------------------------------------------------------*
+*& Start of Selection
+*&---------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM fetch_data.
+  PERFORM process_data.
+  PERFORM display_alv.
+
+*&---------------------------------------------------------------------*
+*&      Form  VALIDATE_PLANT
+*&---------------------------------------------------------------------*
+FORM validate_plant.
+  DATA: lv_werks TYPE t001w-werks.
+
+  IF s_werks IS NOT INITIAL.
+    SELECT SINGLE werks
+      INTO lv_werks
+      FROM t001w
+      WHERE werks IN s_werks.
+
+    IF sy-subrc <> 0.
+      MESSAGE 'Invalid Plant entered in selection.' TYPE 'E'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  VALIDATE_MATTYPE
+*&---------------------------------------------------------------------*
+FORM validate_mattype.
+  DATA: lv_mtart TYPE t134-mtart.
+
+  IF s_mtart IS NOT INITIAL.
+    SELECT SINGLE mtart
+      INTO lv_mtart
+      FROM t134
+      WHERE mtart IN s_mtart.
+
+    IF sy-subrc <> 0.
+      MESSAGE 'Invalid Material Type entered in selection.' TYPE 'E'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  VALIDATE_MATGROUP
+*&---------------------------------------------------------------------*
+FORM validate_matgroup.
+  DATA: lv_matkl TYPE t023-matkl.
+
+  IF s_matkl IS NOT INITIAL.
+    SELECT SINGLE matkl
+      INTO lv_matkl
+      FROM t023
+      WHERE matkl IN s_matkl.
+
+    IF sy-subrc <> 0.
+      MESSAGE 'Invalid Material Group entered in selection.' TYPE 'E'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  FETCH_DATA
+*&---------------------------------------------------------------------*
+FORM fetch_data.
+
+  " Fetch MARA - Material Master General Data
+  SELECT matnr mtart matkl
+    INTO TABLE it_mara
+    FROM mara
+    WHERE matnr IN s_matnr
+      AND mtart IN s_mtart
+      AND matkl IN s_matkl.
+
+  IF it_mara IS INITIAL.
+    MESSAGE 'No materials found for the given selection.' TYPE 'I'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  " Build range table of valid MATNRs for subsequent SELECTs
+  DATA: lt_matnr TYPE RANGE OF matnr,
+        ls_matnr LIKE LINE OF lt_matnr.
+
+  LOOP AT it_mara INTO wa_mara.
+    CLEAR ls_matnr.
+    ls_matnr-sign   = 'I'.
+    ls_matnr-option = 'EQ'.
+    ls_matnr-low    = wa_mara-matnr.
+    APPEND ls_matnr TO lt_matnr.
+  ENDLOOP.
+
+  " Fetch MARC - Plant/MRP Data (Reorder Level & Order Qty)
+  SELECT matnr werks minbe bstmi
+    INTO TABLE it_marc
+    FROM marc
+    FOR ALL ENTRIES IN it_mara
+    WHERE matnr = it_mara-matnr
+      AND werks IN s_werks.
+
+  " Fetch MARD - Storage Location Unrestricted Stock
+  SELECT matnr werks lgort labst
+    INTO TABLE it_mard
+    FROM mard
+    FOR ALL ENTRIES IN it_mara
+    WHERE matnr = it_mara-matnr
+      AND werks IN s_werks
+      AND labst > 0.
+
+  " Fetch MAKT - Material Descriptions (current logon language)
+  SELECT matnr spras maktx
+    INTO TABLE it_makt
+    FROM makt
+    FOR ALL ENTRIES IN it_mara
+    WHERE matnr = it_mara-matnr
+      AND spras = sy-langu.
+
+  " Fetch MBEW - Material Valuation / Standard Price
+  SELECT matnr bwkey stprs
+    INTO TABLE it_mbew
+    FROM mbew
+    FOR ALL ENTRIES IN it_mara
+    WHERE matnr = it_mara-matnr
+      AND bwkey IN s_werks.
+
+  " Sort all tables for BINARY SEARCH performance
+  SORT it_mara BY matnr.
+  SORT it_marc BY matnr werks.
+  SORT it_mard BY matnr werks.
+  SORT it_makt BY matnr.
+  SORT it_mbew BY matnr bwkey.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  PROCESS_DATA
+*&---------------------------------------------------------------------*
+FORM process_data.
+
+  DATA: lv_total_stock TYPE labst,
+        lv_shortage    TYPE p DECIMALS 3,
+        lv_order_value TYPE p DECIMALS 2,
+        lv_currency    TYPE waers.
+
+  CLEAR it_final.
+
+  " Check if MARC data exists
+  IF it_marc IS INITIAL.
+    MESSAGE 'No plant data found for the selected materials.' TYPE 'I'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  LOOP AT it_marc INTO wa_marc.
+
+    CLEAR: wa_final, wa_mara, wa_makt, wa_mbew.
+    lv_total_stock = 0.
+    lv_shortage    = 0.
+    lv_order_value = 0.
+    lv_currency    = space.
+
+    " Verify material exists in MARA result set
+    READ TABLE it_mara INTO wa_mara
+      WITH KEY matnr = wa_marc-matnr
+      BINARY SEARCH.
+    IF sy-subrc <> 0.
+      CONTINUE.
+    ENDIF.
+
+    " Sum MARD-LABST across all storage locations for this plant
+    LOOP AT it_mard INTO wa_mard
+      WHERE matnr = wa_marc-matnr
+        AND werks = wa_marc-werks.
+      lv_total_stock = lv_total_stock + wa_mard-labst.
+    ENDLOOP.
+
+    " Compare total stock against Reorder Level (MINBE)
+    IF lv_total_stock < wa_marc-minbe.
+      lv_shortage       = wa_marc-minbe - lv_total_stock.
+      wa_final-below_rl = 'X'.
+    ELSE.
+      lv_shortage       = 0.
+      wa_final-below_rl = space.
+    ENDIF.
+
+    " Get Standard Price from MBEW
+    READ TABLE it_mbew INTO wa_mbew
+      WITH KEY matnr = wa_marc-matnr
+               bwkey = wa_marc-werks
+      BINARY SEARCH.
+    IF sy-subrc = 0.
+      wa_final-stprs = wa_mbew-stprs.
+
+      " Get currency from company code (T001)
+      SELECT SINGLE waers
+        INTO lv_currency
+        FROM t001
+        WHERE bukrs = wa_mbew-bwkey.
+
+      IF sy-subrc = 0.
+        wa_final-currency = lv_currency.
+      ELSE.
+        wa_final-currency = 'USD'.  " Default currency if not found
+      ENDIF.
+    ENDIF.
+
+    " Calculate Order Value: BSTMI x STPRS
+    IF wa_marc-bstmi > 0 AND wa_final-stprs > 0.
+      lv_order_value = wa_marc-bstmi * wa_final-stprs.
+    ENDIF.
+
+    " Get Material Description from MAKT
+    READ TABLE it_makt INTO wa_makt
+      WITH KEY matnr = wa_marc-matnr
+      BINARY SEARCH.
+    IF sy-subrc = 0.
+      wa_final-maktx = wa_makt-maktx.
+    ENDIF.
+
+    " Populate IT_FINAL
+    wa_final-werks       = wa_marc-werks.
+    wa_final-matnr       = wa_marc-matnr.
+    wa_final-mtart       = wa_mara-mtart.
+    wa_final-matkl       = wa_mara-matkl.
+    wa_final-minbe       = wa_marc-minbe.
+    wa_final-bstmi       = wa_marc-bstmi.
+    wa_final-total_stock = lv_total_stock.
+    wa_final-shortage    = lv_shortage.
+    wa_final-order_value = lv_order_value.
+
+    APPEND wa_final TO it_final.
+
+  ENDLOOP.
+
+  " Apply radio button display filter
+  CLEAR it_display.
+  IF rb_short = 'X'.
+    LOOP AT it_final INTO wa_final WHERE below_rl = 'X'.
+      APPEND wa_final TO it_display.
+    ENDLOOP.
+  ELSE.
+    it_display[] = it_final[].
+  ENDIF.
+
+  IF it_display IS INITIAL.
+    MESSAGE 'No records found for the selected criteria.' TYPE 'I'.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_ALV
+*&---------------------------------------------------------------------*
+FORM display_alv.
+
+  DATA: lt_fieldcat TYPE slis_t_fieldcat_alv,
+        ls_fieldcat TYPE slis_fieldcat_alv,
+        ls_layout   TYPE slis_layout_alv,
+        lv_repid    TYPE sy-repid.
+
+  lv_repid = sy-repid.
+
+  CLEAR lt_fieldcat.
+
+  " ---- Field Catalog ------------------------------------------------
+  DEFINE add_col.
+    CLEAR ls_fieldcat.
+    ls_fieldcat-col_pos    = &1.
+    ls_fieldcat-fieldname  = &2.
+    ls_fieldcat-seltext_l  = &3.
+    ls_fieldcat-outputlen  = &4.
+    ls_fieldcat-key        = &5.
+    APPEND ls_fieldcat TO lt_fieldcat.
+  END-OF-DEFINITION.
+
+  add_col  1  'WERKS'       'Plant'               6  'X'.
+  add_col  2  'MATNR'       'Material No.'       18  'X'.
+  add_col  3  'MAKTX'       'Description'        40  ''.
+  add_col  4  'MTART'       'Mat. Type'           8  ''.
+  add_col  5  'MATKL'       'Mat. Group'          9  ''.
+  add_col  6  'MINBE'       'Reorder Level'      15  ''.
+  add_col  7  'TOTAL_STOCK' 'Total Stock'        15  ''.
+  add_col  8  'SHORTAGE'    'Shortage Qty'       15  ''.
+  add_col  9  'BSTMI'       'Order Qty'          15  ''.
+  add_col 10  'STPRS'       'Std. Price'         15  ''.
+  add_col 11  'ORDER_VALUE' 'Order Value'        18  ''.
+  add_col 12  'CURRENCY'    'Currency'            5  ''.
+  add_col 13  'BELOW_RL'    'Below RL?'           8  ''.
+
+  " Right-align numeric columns and add totals
+  LOOP AT lt_fieldcat INTO ls_fieldcat
+    WHERE fieldname = 'MINBE'
+       OR fieldname = 'TOTAL_STOCK'
+       OR fieldname = 'SHORTAGE'
+       OR fieldname = 'BSTMI'
+       OR fieldname = 'STPRS'
+       OR fieldname = 'ORDER_VALUE'.
+    ls_fieldcat-just   = 'R'.
+    ls_fieldcat-do_sum = 'X'.
+    MODIFY lt_fieldcat FROM ls_fieldcat.
+  ENDLOOP.
+
+  " ---- Layout -------------------------------------------------------
+  ls_layout-zebra              = 'X'.   " Alternating row colors
+  ls_layout-colwidth_optimize  = 'X'.
+  ls_layout-box_fieldname      = space.
+  ls_layout-info_fieldname     = 'BELOW_RL'.
+  ls_layout-no_input           = 'X'.
+
+  " ---- Display ALV ------------------------------------------
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = lv_repid
+      is_layout          = ls_layout
+      it_fieldcat        = lt_fieldcat
+      i_save             = 'A'
+      i_grid_title       = 'Material Reorder Level Report'
+    TABLES
+      t_outtab           = it_display
+    EXCEPTIONS
+      program_error      = 1
+      OTHERS             = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE 'Error displaying ALV report.' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.

@@ -1,0 +1,62 @@
+REPORT Z_SELECTION_SCREEN.
+
+*---------------------------------------------------------------------*
+* PARAMETERS
+*---------------------------------------------------------------------*
+PARAMETERS:
+  P_ENO   TYPE I,
+  P_ENAME TYPE C LENGTH 20,
+  P_ESAL  TYPE P LENGTH 8 DECIMALS 2.
+
+*---------------------------------------------------------------------*
+* SELECT-OPTIONS
+*---------------------------------------------------------------------*
+SELECT-OPTIONS:
+  S_CITY FOR P_ENAME.
+
+*---------------------------------------------------------------------*
+* CHECKBOX
+*---------------------------------------------------------------------*
+PARAMETERS:
+  P_CHECK AS CHECKBOX.
+
+*---------------------------------------------------------------------*
+* RADIO BUTTONS
+*---------------------------------------------------------------------*
+PARAMETERS:
+  R1 RADIOBUTTON GROUP G1 DEFAULT 'X',
+  R2 RADIOBUTTON GROUP G1,
+  R3 RADIOBUTTON GROUP G1.
+
+*---------------------------------------------------------------------*
+* START-OF-SELECTION
+*---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+WRITE: / 'EMPLOYEE NUMBER :', P_ENO.
+WRITE: / 'EMPLOYEE NAME   :', P_ENAME.
+WRITE: / 'EMPLOYEE SALARY :', P_ESAL.
+
+WRITE: / '-----------------------------'.
+
+IF P_CHECK = 'X'.
+  WRITE: / 'CHECKBOX SELECTED'.
+ELSE.
+  WRITE: / 'CHECKBOX NOT SELECTED'.
+ENDIF.
+
+WRITE: / '-----------------------------'.
+
+IF R1 = 'X'.
+  WRITE: / 'RADIO BUTTON 1 SELECTED'.
+ELSEIF R2 = 'X'.
+  WRITE: / 'RADIO BUTTON 2 SELECTED'.
+ELSEIF R3 = 'X'.
+  WRITE: / 'RADIO BUTTON 3 SELECTED'.
+ENDIF.
+
+WRITE: / '-----------------------------'.
+
+LOOP AT S_CITY.
+  WRITE: / 'SELECT OPTION VALUE :', S_CITY-LOW.
+ENDLOOP.

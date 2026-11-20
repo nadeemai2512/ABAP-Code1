@@ -1,0 +1,91 @@
+REPORT Z_PUSH_BUTTON007.
+
+*---------------------------------------------------------------------*
+* TO CREATE PUSH BUTTONS ON SELECTION SCREEN
+*---------------------------------------------------------------------*
+
+TABLES: SSCRFIELDS.
+
+*---------------------------------------------------------------------*
+* PARAMETERS
+*---------------------------------------------------------------------*
+PARAMETERS:
+  P_NUM TYPE I,
+  P_TXT TYPE CHAR20.
+
+*---------------------------------------------------------------------*
+* PUSH BUTTONS
+*---------------------------------------------------------------------*
+SELECTION-SCREEN SKIP 2.
+
+SELECTION-SCREEN PUSHBUTTON /10(12) PUSH1 USER-COMMAND FCT1.
+SELECTION-SCREEN PUSHBUTTON 30(12) PUSH2 USER-COMMAND FCT2.
+SELECTION-SCREEN PUSHBUTTON 50(12) PUSH3 USER-COMMAND FCT3.
+
+*---------------------------------------------------------------------*
+* INITIALIZATION
+*---------------------------------------------------------------------*
+INITIALIZATION.
+
+  PUSH1 = 'DISPLAY'.
+  PUSH2 = 'CLEAR'.
+  PUSH3 = 'EXIT'.
+
+*---------------------------------------------------------------------*
+* AT SELECTION-SCREEN EVENT
+*---------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+
+*---------------------------------------------------------------------*
+* DISPLAY BUTTON ACTION
+*---------------------------------------------------------------------*
+  IF SSCRFIELDS-UCOMM = 'FCT1'.
+
+    WRITE: / 'DISPLAY BUTTON PRESSED'.
+    WRITE: / 'ENTERED NUMBER : ', P_NUM.
+    WRITE: / 'ENTERED TEXT   : ', P_TXT.
+
+*---------------------------------------------------------------------*
+* SOME ACTIONS
+*---------------------------------------------------------------------*
+
+* Addition
+    DATA: RESULT TYPE I.
+
+    RESULT = P_NUM + 100.
+
+    WRITE: / 'NUMBER AFTER ADDING 100 : ', RESULT.
+
+* Check Even or Odd
+    IF P_NUM MOD 2 = 0.
+      WRITE: / 'THE NUMBER IS EVEN'.
+    ELSE.
+      WRITE: / 'THE NUMBER IS ODD'.
+    ENDIF.
+
+* Convert text to uppercase
+    TRANSLATE P_TXT TO UPPER CASE.
+
+    WRITE: / 'TEXT IN UPPER CASE : ', P_TXT.
+
+  ENDIF.
+
+*---------------------------------------------------------------------*
+* CLEAR BUTTON ACTION
+*---------------------------------------------------------------------*
+  IF SSCRFIELDS-UCOMM = 'FCT2'.
+
+    CLEAR: P_NUM, P_TXT.
+
+    WRITE: / 'FIELDS CLEARED SUCCESSFULLY'.
+
+  ENDIF.
+
+*---------------------------------------------------------------------*
+* EXIT BUTTON ACTION
+*---------------------------------------------------------------------*
+  IF SSCRFIELDS-UCOMM = 'FCT3'.
+
+    LEAVE PROGRAM.
+
+  ENDIF.

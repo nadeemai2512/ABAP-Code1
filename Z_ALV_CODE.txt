@@ -1,0 +1,93 @@
+REPORT Z_ALV_CODE.
+
+
+*----------------------------------------------------------------------*
+* TO CREATE A VARIABLE DATA F_MATNR TYPE MATNR.
+*----------------------------------------------------------------------*
+DATA: f_matnr TYPE matnr.
+
+*----------------------------------------------------------------------*
+* TO CREATE RANGE OF INPUT FIELDS.
+*----------------------------------------------------------------------*
+SELECT-OPTIONS: s_matnr FOR f_matnr.
+
+*----------------------------------------------------------------------*
+* TO CREATE INTERNAL TABLE REFERRING TO STRUCTURE - MARA.
+*----------------------------------------------------------------------*
+DATA: mat_it TYPE TABLE OF mara.
+
+*----------------------------------------------------------------------*
+* TO CREATE IMPLICIT WORK AREA FOR SELECTION SCREEN FIELDS
+*----------------------------------------------------------------------*
+TABLES: sscrfields.
+
+*----------------------------------------------------------------------*
+* TO CREATE PUSH BUTTON ON SELECTION SCREEN FOR ENTER AND EXIT
+*----------------------------------------------------------------------*
+SELECTION-SCREEN SKIP 2.
+SELECTION-SCREEN PUSHBUTTON 50(10) button1 USER-COMMAND bt1.
+SELECTION-SCREEN SKIP.
+SELECTION-SCREEN PUSHBUTTON 50(10) button2 USER-COMMAND bt2.
+
+*----------------------------------------------------------------------*
+* INITIALIZATION
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  button1 = 'ENTER'.
+  button2 = 'EXIT'.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+  IF sscrfields-ucomm = 'BT2'.
+    LEAVE PROGRAM.
+  ELSEIF sscrfields-ucomm = 'BT1'.
+    sscrfields-ucomm = 'ONLI'.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* START-OF-SELECTION
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM fetch_data.
+  PERFORM display_data.
+
+*&---------------------------------------------------------------------*
+*& Form FETCH_DATA
+*&---------------------------------------------------------------------*
+* TO DEFINE SUB ROUTINE FOR FETCHING DATA FROM MARA
+*----------------------------------------------------------------------*
+FORM fetch_data .
+  SELECT * FROM mara
+    INTO TABLE mat_it
+    WHERE matnr IN s_matnr.
+
+  IF sy-subrc <> 0.
+    MESSAGE 'NO RECORDS FETCHED' TYPE 'E'.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form DISPLAY_DATA
+*&---------------------------------------------------------------------*
+* TO DEFINE A SUB ROUTINE FOR DISPLAYING DATA
+*----------------------------------------------------------------------*
+FORM display_data .
+  " CALLING FUNCTION MODULE FOR DISPLAYING OUTPUT ON ALV GRID DISPLAY
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = sy-repid
+      i_structure_name   = 'MARA'
+      i_grid_title       = 'MATERIAL MASTER DATA'
+    TABLES
+      t_outtab           = mat_it
+    EXCEPTIONS
+      program_error      = 1
+      OTHERS             = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+ENDFORM.

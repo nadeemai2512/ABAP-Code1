@@ -1,0 +1,182 @@
+REPORT Z_ALV_LOGO.
+
+TYPE-POOLS: SLIS.
+
+TABLES: MARA,
+        MAKT.
+
+TYPES: BEGIN OF TY_MAT,
+
+         MATNR TYPE MARA-MATNR,
+         MTART TYPE MARA-MTART,
+         MATKL TYPE MARA-MATKL,
+         MEINS TYPE MARA-MEINS,
+         MAKTX TYPE MAKT-MAKTX,
+
+       END OF TY_MAT.
+
+DATA: IT_MAT TYPE TABLE OF TY_MAT,
+      WA_MAT TYPE TY_MAT.
+
+DATA: IT_FCAT TYPE SLIS_T_FIELDCAT_ALV,
+      WA_FCAT TYPE SLIS_FIELDCAT_ALV.
+
+DATA: WA_LAYOUT TYPE SLIS_LAYOUT_ALV.
+
+DATA: IT_EVENTS TYPE SLIS_T_EVENT,
+      WA_EVENTS TYPE SLIS_ALV_EVENT.
+
+DATA: IT_LISTHEADER TYPE SLIS_T_LISTHEADER,
+      WA_LISTHEADER TYPE SLIS_LISTHEADER.
+
+SELECT-OPTIONS: S_MATNR FOR MARA-MATNR.
+
+START-OF-SELECTION.
+
+  PERFORM FETCH_DATA.
+  PERFORM BUILD_FCAT.
+  PERFORM BUILD_EVENTS.
+  PERFORM DISPLAY_ALV.
+
+*---------------------------------------------------------------------*
+* FETCH DATA
+*---------------------------------------------------------------------*
+FORM FETCH_DATA.
+
+  SELECT A~MATNR
+         A~MTART
+         A~MATKL
+         A~MEINS
+         B~MAKTX
+
+    INTO TABLE IT_MAT
+
+    FROM MARA AS A
+
+    INNER JOIN MAKT AS B
+    ON A~MATNR = B~MATNR
+
+    WHERE A~MATNR IN S_MATNR
+      AND B~SPRAS = SY-LANGU.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* BUILD FIELD CATALOG
+*---------------------------------------------------------------------*
+FORM BUILD_FCAT.
+
+* MATERIAL NUMBER
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 1.
+  WA_FCAT-FIELDNAME = 'MATNR'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_M = 'MATERIAL NUMBER'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* MATERIAL TYPE
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 2.
+  WA_FCAT-FIELDNAME = 'MTART'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_M = 'MATERIAL TYPE'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* MATERIAL GROUP
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 3.
+  WA_FCAT-FIELDNAME = 'MATKL'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_M = 'MATERIAL GROUP'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* BASE UNIT
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 4.
+  WA_FCAT-FIELDNAME = 'MEINS'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_M = 'BASE UNIT'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* DESCRIPTION
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 5.
+  WA_FCAT-FIELDNAME = 'MAKTX'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_M = 'DESCRIPTION'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* BUILD EVENTS
+*---------------------------------------------------------------------*
+FORM BUILD_EVENTS.
+
+  CLEAR WA_EVENTS.
+  WA_EVENTS-NAME = 'TOP_OF_PAGE'.
+  WA_EVENTS-FORM = 'TOP_OF_PAGE'.
+  APPEND WA_EVENTS TO IT_EVENTS.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* DISPLAY ALV
+*---------------------------------------------------------------------*
+FORM DISPLAY_ALV.
+
+  WA_LAYOUT-ZEBRA = 'X'.
+  WA_LAYOUT-COLWIDTH_OPTIMIZE = 'X'.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+
+    EXPORTING
+      I_CALLBACK_PROGRAM = SY-REPID
+      IS_LAYOUT          = WA_LAYOUT
+      IT_FIELDCAT        = IT_FCAT
+      IT_EVENTS          = IT_EVENTS
+      I_GRID_TITLE       = 'ALV REPORT WITH PAGE HEADING AND LOGO'
+
+    TABLES
+      T_OUTTAB           = IT_MAT
+
+    EXCEPTIONS
+      PROGRAM_ERROR      = 1
+      OTHERS             = 2.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* TOP OF PAGE
+*---------------------------------------------------------------------*
+FORM TOP_OF_PAGE.
+
+  CLEAR WA_LISTHEADER.
+  WA_LISTHEADER-TYP  = 'H'.
+  WA_LISTHEADER-INFO = 'MATERIAL MASTER REPORT'.
+  APPEND WA_LISTHEADER TO IT_LISTHEADER.
+
+  CLEAR WA_LISTHEADER.
+  WA_LISTHEADER-TYP  = 'S'.
+  WA_LISTHEADER-KEY  = 'DATE : '.
+  WA_LISTHEADER-INFO = SY-DATUM.
+  APPEND WA_LISTHEADER TO IT_LISTHEADER.
+
+  CLEAR WA_LISTHEADER.
+  WA_LISTHEADER-TYP  = 'S'.
+  WA_LISTHEADER-KEY  = 'USER : '.
+  WA_LISTHEADER-INFO = SY-UNAME.
+  APPEND WA_LISTHEADER TO IT_LISTHEADER.
+
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+
+    EXPORTING
+      IT_LIST_COMMENTARY = IT_LISTHEADER
+      I_LOGO             = 'ENJOYSAP_LOGO'.
+
+ENDFORM.

@@ -1,0 +1,140 @@
+REPORT Z_INTERNALTABLEWITHAPPEND.
+
+WRITE: / 'APPEND: Adds records at the end.' COLOR 3.
+* TYPE DECLARATION
+TYPES: BEGIN OF ty_staff,
+         id     TYPE n LENGTH 3,
+         name   TYPE c LENGTH 15,
+         phone  TYPE n LENGTH 10,
+         city   TYPE c LENGTH 15,
+         salary TYPE i,
+       END OF ty_staff.
+
+DATA: it_staff TYPE TABLE OF ty_staff,
+      wa_staff TYPE ty_staff.
+
+*---------------------------------------------------------------------*
+* APPEND EXAMPLES
+*---------------------------------------------------------------------*
+
+wa_staff-id     = 201.
+wa_staff-name   = 'ARJUN'.
+wa_staff-phone  = 9123456780.
+wa_staff-city   = 'BANGALORE'.
+wa_staff-salary = 15000.
+APPEND wa_staff TO it_staff.
+CLEAR wa_staff.
+
+wa_staff-id     = 202.
+wa_staff-name   = 'KIRAN'.
+wa_staff-phone  = 9234567810.
+wa_staff-city   = 'PUNE'.
+wa_staff-salary = 12000.
+APPEND wa_staff TO it_staff.
+CLEAR wa_staff.
+
+wa_staff-id     = 203.
+wa_staff-name   = 'NEHA'.
+wa_staff-phone  = 9345678120.
+wa_staff-city   = 'CHENNAI'.
+wa_staff-salary = 14000.
+APPEND wa_staff TO it_staff.
+CLEAR wa_staff.
+
+wa_staff-id     = 204.
+wa_staff-name   = 'PRIYA'.
+wa_staff-phone  = 9456781230.
+wa_staff-city   = 'KOLKATA'.
+wa_staff-salary = 13000.
+APPEND wa_staff TO it_staff.
+CLEAR wa_staff.
+
+LOOP AT it_staff INTO wa_staff.
+  WRITE: / sy-tabix LEFT-JUSTIFIED,
+           wa_staff-id,
+           wa_staff-name,
+           wa_staff-phone,
+           wa_staff-city,
+           wa_staff-salary LEFT-JUSTIFIED.
+ENDLOOP.
+
+ULINE.
+
+*---------------------------------------------------------------------*
+* INSERT EXAMPLE
+*---------------------------------------------------------------------*
+
+WRITE: / 'INSERT: Insert at specific index.' COLOR 3.
+
+wa_staff-id     = 205.
+wa_staff-name   = 'ROHAN'.
+wa_staff-phone  = 9567891230.
+wa_staff-city   = 'HYDERABAD'.
+wa_staff-salary = 11000.
+
+INSERT wa_staff INTO it_staff INDEX 2.
+CLEAR wa_staff.
+
+LOOP AT it_staff INTO wa_staff.
+  IF sy-tabix = 2.
+    WRITE: / sy-tabix LEFT-JUSTIFIED COLOR 5,
+             wa_staff-id COLOR 5,
+             wa_staff-name COLOR 5,
+             wa_staff-phone COLOR 5,
+             wa_staff-city COLOR 5,
+             wa_staff-salary LEFT-JUSTIFIED COLOR 5,
+             '<<<INSERTED AT POSITION 2' COLOR 5.
+  ELSE.
+    WRITE: / sy-tabix LEFT-JUSTIFIED,
+             wa_staff-id,
+             wa_staff-name,
+             wa_staff-phone,
+             wa_staff-city,
+             wa_staff-salary LEFT-JUSTIFIED.
+  ENDIF.
+ENDLOOP.
+
+ULINE.
+
+*---------------------------------------------------------------------*
+* COLLECT EXAMPLE
+*---------------------------------------------------------------------*
+
+WRITE: / 'COLLECT: Aggregates values with same key.' COLOR 3.
+
+CLEAR it_staff.
+
+wa_staff-id     = 300.
+wa_staff-name   = 'MEENA'.
+wa_staff-phone  = 9000011111.
+wa_staff-city   = 'DELHI'.
+wa_staff-salary = 7000.
+COLLECT wa_staff INTO it_staff.
+CLEAR wa_staff.
+
+wa_staff-id     = 300.
+wa_staff-name   = 'MEENA'.
+wa_staff-phone  = 9000011111.
+wa_staff-city   = 'DELHI'.
+wa_staff-salary = 4000.
+COLLECT wa_staff INTO it_staff.
+CLEAR wa_staff.
+
+LOOP AT it_staff INTO wa_staff.
+  IF sy-tabix = 1.
+    WRITE: / sy-tabix LEFT-JUSTIFIED COLOR 5,
+             wa_staff-id COLOR 5,
+             wa_staff-name COLOR 5,
+             wa_staff-phone COLOR 5,
+             wa_staff-city COLOR 5,
+             wa_staff-salary LEFT-JUSTIFIED COLOR 5,
+             '<<<SALARY ADDED USING COLLECT' COLOR 5.
+  ELSE.
+    WRITE: / sy-tabix LEFT-JUSTIFIED,
+             wa_staff-id,
+             wa_staff-name,
+             wa_staff-phone,
+             wa_staff-city,
+             wa_staff-salary LEFT-JUSTIFIED.
+  ENDIF.
+ENDLOOP.

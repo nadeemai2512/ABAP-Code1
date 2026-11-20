@@ -1,0 +1,143 @@
+REPORT Z_STRINGOPERATORS.
+
+* 1. CA - CONTAINS ANY
+* =============================================
+WRITE: / '========== CA - CONTAINS ANY =========='.
+
+* Example 1: Basic check
+DATA: CA_STR1 TYPE STRING VALUE 'ABCDEFGH',
+      CA_STR2 TYPE STRING VALUE 'XYZ'.
+
+IF CA_STR1 CA CA_STR2.
+  WRITE: / 'String contains at least one character from:', CA_STR2.
+ELSE.
+  WRITE: / 'String does NOT contain any character from:', CA_STR2.
+ENDIF.
+
+* Example 2: Digits check
+DATA: CA_STR3 TYPE STRING VALUE 'HELLO WORLD',
+      CA_STR4 TYPE STRING VALUE '123'.
+
+IF CA_STR3 CA CA_STR4.
+  WRITE: / 'Contains digit found'.
+ELSE.
+  WRITE: / 'No digits found'.
+ENDIF.
+
+* Example 3: Vowels check
+DATA: CA_STR5 TYPE STRING VALUE 'MYTHRHYTHM',
+      CA_STR6 TYPE STRING VALUE 'AEIOU'.
+
+IF CA_STR5 CA CA_STR6.
+  WRITE: / 'String contains vowels'.
+ELSE.
+  WRITE: / 'String has NO vowels'.
+ENDIF.
+
+
+SKIP.
+ULINE.
+
+* 2. CO - CONTAINS ONLY
+* =============================================
+WRITE: / '========== CO - CONTAINS ONLY =========='.
+
+* Example 1: Numeric only check
+DATA: CO_STR1 TYPE STRING VALUE '111222333',
+      CO_STR2 TYPE STRING VALUE '123'.
+
+IF CO_STR1 CO CO_STR2.
+  WRITE: / 'String contains ONLY characters from:', CO_STR2.
+ELSE.
+  WRITE: / 'String contains characters OUTSIDE:', CO_STR2.
+ENDIF.
+
+* Example 2: Alphabetic only check
+DATA: CO_STR3 TYPE STRING VALUE 'ABC123',
+      CO_STR4 TYPE STRING VALUE 'ABC'.
+
+IF CO_STR3 CO CO_STR4.
+  WRITE: / 'ONLY ABC characters'.
+ELSE.
+  WRITE: / 'Contains characters other than ABC'.
+ENDIF.
+
+* Example 3: Hexadecimal check
+DATA: CO_STR5 TYPE STRING VALUE '1A2B3C',
+      CO_STR6 TYPE STRING VALUE '0123456789ABCDEF'.
+
+IF CO_STR5 CO CO_STR6.
+  WRITE: / 'Valid hexadecimal string'.
+ELSE.
+  WRITE: / 'Not a valid hexadecimal string'.
+ENDIF.
+
+SKIP.
+ULINE.
+* 3. CS - CONTAINS STRING
+* =============================================
+WRITE: / '========== CS - CONTAINS STRING =========='.
+
+* Example 1: Simple substring
+DATA: CS_STR1 TYPE STRING VALUE 'WELCOME TO ABAP PROGRAMMING',
+      CS_STR2 TYPE STRING VALUE 'ABAP'.
+
+IF CS_STR1 CS CS_STR2.
+  WRITE: / 'Substring found:', CS_STR2.
+  WRITE: / 'Full string:', CS_STR1.
+ELSE.
+  WRITE: / 'Substring NOT found'.
+ENDIF.
+
+* Example 2: Case sensitive check
+DATA: CS_STR3 TYPE STRING VALUE 'SUNRISES IN THE EAST',
+      CS_STR4 TYPE STRING VALUE 'east'.
+
+IF CS_STR3 CS CS_STR4.
+  WRITE: / 'Substring identified:', CS_STR4.
+ELSE.
+  WRITE: / 'Substring NOT identified (case sensitive)'.
+ENDIF.
+
+* Example 3: Email validation
+DATA: CS_STR5 TYPE STRING VALUE 'user@example.com',
+      CS_STR6 TYPE STRING VALUE '@'.
+
+IF CS_STR5 CS CS_STR6.
+  WRITE: / 'Valid email format (contains @)'.
+ELSE.
+  WRITE: / 'Invalid email format'.
+ENDIF.
+SKIP.
+ULINE.
+
+* 4. CP - CONTAINS PATTERN
+* =============================================
+WRITE: / '========== CP - CONTAINS PATTERN =========='.
+
+* Example 1: Pattern with wildcards
+DATA: CP_STR1 TYPE STRING VALUE 'THE SUN RISES IN THE EAST',
+      CP_STR2 TYPE STRING VALUE '*SUN*EAST*'.
+
+IF CP_STR1 CP CP_STR2.
+  WRITE: / 'Pattern matched:', CP_STR2.
+  WRITE: / 'Original text:', CP_STR1.
+ELSE.
+  WRITE: / 'Pattern NOT matched'.
+ENDIF.
+
+* Example 2: Contains word
+DATA: CP_STR3 TYPE STRING VALUE 'INDIA IS MY COUNTRY',
+      CP_STR4 TYPE STRING VALUE '*MY*'.
+
+IF CP_STR3 CP CP_STR4.
+  WRITE: / 'Pattern contains "MY"'.
+ENDIF.
+
+* Example 3: Phone number pattern
+DATA: CP_STR5 TYPE STRING VALUE 'Call me at +91-9876543210',
+      CP_STR6 TYPE STRING VALUE '*+91-**********'.
+
+IF CP_STR5 CP CP_STR6.
+  WRITE: / 'Phone number pattern detected'.
+ENDIF.

@@ -1,0 +1,416 @@
+REPORT z_seperation_employee_alv_rp.
+
+*----------------------------------------------------------------------*
+* TITLE shown on screen: "Report for separated employees data"
+* Maintain via SE38 -> Goto -> Text Elements -> Selection Texts / Text Symbols
+* if you want it to appear exactly as the image, OR set the GUI Title
+* using SET TITLEBAR / SET SCREEN if this runs on a custom dynpro.
+*----------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* TYPES
+*----------------------------------------------------------------------*
+TYPES: BEGIN OF ty_final,
+         pernr         TYPE pa0000-pernr,        " Employee No
+         name          TYPE string,               " First+Middle+Last Name
+         bukrs         TYPE pa0001-bukrs,         " Company Code
+         gender        TYPE string,               " Gender
+         seat_loc      TYPE t001p-btext,          " Seating Location
+         mgr_pernr     TYPE pa0001-pernr,         " Reporting/Line Manager Pernr
+         mgr_name      TYPE string,               " Reporting/Line Manager Name
+         dat01         TYPE pa0041-dat01,         " Date of Joining
+         grade         TYPE pa0001-persk,         " Grade/Band
+         dat02         TYPE sy-datum,             " Last Working Date
+         begda         TYPE pa0000-begda,         " SAP Separation Date
+         massg_txt     TYPE string,               " Reason
+         usrid_long    TYPE pa0105-usrid_long,    " Private Mail ID
+         massn         TYPE pa0000-massn,         " Latest Separation Action
+         uname         TYPE pa0000-uname,         " Changed By
+         aedtm         TYPE pa0000-aedtm,         " Changed On
+       END OF ty_final.
+
+TYPES: BEGIN OF ty_pa0000,
+         pernr TYPE pa0000-pernr,
+         stat2 TYPE pa0000-stat2,
+         begda TYPE pa0000-begda,
+         endda TYPE pa0000-endda,
+         massn TYPE pa0000-massn,
+         massg TYPE pa0000-massg,
+         uname TYPE pa0000-uname,
+         aedtm TYPE pa0000-aedtm,
+       END OF ty_pa0000.
+
+TYPES: BEGIN OF ty_pa0001,
+         pernr TYPE pa0001-pernr,
+         bukrs TYPE pa0001-bukrs,
+         persk TYPE pa0001-persk,
+         btrtl TYPE pa0001-btrtl,
+         plans TYPE pa0001-plans,
+         begda TYPE pa0001-begda,
+         endda TYPE pa0001-endda,
+       END OF ty_pa0001.
+
+TYPES: BEGIN OF ty_pa0002,
+         pernr TYPE pa0002-pernr,
+         begda TYPE pa0002-begda,
+         endda TYPE pa0002-endda,
+         gesch TYPE pa0002-gesch,
+         nach2 TYPE pa0002-nach2,
+         nachn TYPE pa0002-nachn,
+         vorna TYPE pa0002-vorna,
+       END OF ty_pa0002.
+
+TYPES: BEGIN OF ty_pa0041,
+         pernr TYPE pa0041-pernr,
+         dat01 TYPE pa0041-dat01,
+         dat02 TYPE pa0041-dat02,
+         dat03 TYPE pa0041-dat03,
+         dar01 TYPE pa0041-dar01,
+         dar02 TYPE pa0041-dar02,
+         dar03 TYPE pa0041-dar03,
+       END OF ty_pa0041.
+
+TYPES: BEGIN OF ty_pa0105,
+         pernr      TYPE pa0105-pernr,
+         subty      TYPE pa0105-subty,
+         usrid_long TYPE pa0105-usrid_long,
+       END OF ty_pa0105.
+
+TYPES: BEGIN OF ty_t001p,
+         btrtl TYPE t001p-btrtl,
+         btext TYPE t001p-btext,
+       END OF ty_t001p.
+
+*----------------------------------------------------------------------*
+* INTERNAL TABLES / WORK AREAS
+*----------------------------------------------------------------------*
+DATA: it_pa0000 TYPE TABLE OF ty_pa0000,
+      it_pa0001 TYPE TABLE OF ty_pa0001,
+      it_pa0002 TYPE TABLE OF ty_pa0002,
+      it_pa0041 TYPE TABLE OF ty_pa0041,
+      it_pa0105 TYPE TABLE OF ty_pa0105,
+      it_t001p  TYPE TABLE OF ty_t001p,
+      it_final  TYPE TABLE OF ty_final.
+
+DATA: wa_pa0000  TYPE ty_pa0000,
+      wa_pa0001  TYPE ty_pa0001,
+      wa_pa0002  TYPE ty_pa0002,
+      wa_pa0041  TYPE ty_pa0041,
+      wa_pa0105  TYPE ty_pa0105,
+      wa_t001p   TYPE ty_t001p,
+      wa_final   TYPE ty_final,
+      wa_hrp1001 TYPE hrp1001,
+      wa_mgr_name TYPE ty_pa0002.
+
+DATA: lv_sobid_pos TYPE hrp1001-sobid,
+      lv_mgr_pernr TYPE pa0001-pernr.
+
+CONSTANTS: c_last_date TYPE sy-datum VALUE '99991231'.
+
+*----------------------------------------------------------------------*
+* SELECTION SCREEN  -- labels rewritten to match the screenshot exactly:
+* "Period-(Start Date & End Date)", "Employee No", "Company Code",
+* "Band", "Personnel Subarea"
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.  " Input Selection
+
+SELECT-OPTIONS:
+  s_date   FOR sy-datum         OBLIGATORY,                  " Period-(Start Date & End Date)
+  s_pernr  FOR wa_pa0000-pernr,                               " Employee No
+  p_bukrs  FOR wa_pa0001-bukrs ,               " Company Code
+  p_band   FOR wa_pa0001-persk  ,                   " Band
+  p_subare FOR wa_pa0001-btrtl.                                " Personnel Subarea
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+*----------------------------------------------------------------------*
+* TEXT-001 / Selection texts (maintain in SE38 -> Goto -> Text Elements):
+*  Block title TEXT-001  = Input Selection
+*  S_DATE   selection text = Period-(Start Date & End Date)
+*  S_PERNR  selection text = Employee No
+*  P_BUKRS  selection text = Company Code
+*  P_BAND   selection text = Band
+*  P_SUBARE selection text = Personnel Subarea
+*----------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* MAIN
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM get_data.
+  PERFORM process_data.
+  PERFORM display_alv.
+
+*&---------------------------------------------------------------------*
+*&      Form  GET_DATA
+*&---------------------------------------------------------------------*
+FORM get_data.
+
+  REFRESH it_pa0000.
+  SELECT pernr stat2 begda endda massn massg uname aedtm
+    FROM pa0000
+    INTO TABLE it_pa0000
+    WHERE pernr IN s_pernr
+      AND stat2 NE '3'                          " not active = separated
+      AND begda BETWEEN s_date-low AND s_date-high.
+
+  " ---- DIAGNOSTIC: confirms whether PA0000 returned anything at all ----
+  WRITE: / 'DEBUG: PA0000 records found =', sy-dbcnt.
+
+  CHECK it_pa0000 IS NOT INITIAL.
+
+  REFRESH it_pa0001.
+  SELECT pernr bukrs persk btrtl plans begda endda
+    FROM pa0001
+    INTO TABLE it_pa0001
+    FOR ALL ENTRIES IN it_pa0000
+    WHERE pernr = it_pa0000-pernr
+      AND bukrs IN p_bukrs
+      AND persk IN p_band
+      AND btrtl IN p_subare.
+
+  WRITE: / 'DEBUG: PA0001 records found (before delimit filter) =', sy-dbcnt.
+
+  IF it_pa0001 IS NOT INITIAL.
+    " Keep only the currently-valid org assignment row per pernr.
+    " If your PA0001 records are delimited at separation (ENDDA <> 99991231),
+    " change the line below to pick the row with the MAX(ENDDA) per pernr instead.
+    DELETE it_pa0001 WHERE endda NE c_last_date.
+    SORT it_pa0001 BY pernr.
+    DELETE ADJACENT DUPLICATES FROM it_pa0001 COMPARING pernr.
+  ENDIF.
+
+  WRITE: / 'DEBUG: PA0001 records after delimit filter =', lines( it_pa0001 ).
+
+  REFRESH it_pa0002.
+  SELECT pernr begda endda gesch nach2 nachn vorna
+    FROM pa0002
+    INTO TABLE it_pa0002
+    FOR ALL ENTRIES IN it_pa0000
+    WHERE pernr = it_pa0000-pernr
+      AND endda = c_last_date.
+  IF sy-subrc EQ 0.
+    SORT it_pa0002 BY pernr.
+  ENDIF.
+
+  REFRESH it_pa0041.
+  SELECT pernr dat01 dat02 dat03 dar01 dar02 dar03
+    FROM pa0041
+    INTO TABLE it_pa0041
+    FOR ALL ENTRIES IN it_pa0000
+    WHERE pernr = it_pa0000-pernr.
+  IF sy-subrc EQ 0.
+    SORT it_pa0041 BY pernr.
+  ENDIF.
+
+  REFRESH it_pa0105.
+  SELECT pernr subty usrid_long
+    FROM pa0105
+    INTO TABLE it_pa0105
+    FOR ALL ENTRIES IN it_pa0000
+    WHERE pernr = it_pa0000-pernr
+      AND subty = '0030'.                       " private mail id
+  IF sy-subrc EQ 0.
+    SORT it_pa0105 BY pernr.
+  ENDIF.
+
+  REFRESH it_t001p.
+  IF it_pa0001 IS NOT INITIAL.
+    SELECT btrtl btext
+      FROM t001p
+      INTO TABLE it_t001p
+      FOR ALL ENTRIES IN it_pa0001
+      WHERE btrtl = it_pa0001-btrtl.
+    SORT it_t001p BY btrtl.
+  ENDIF.
+
+ENDFORM.                    "get_data
+
+*&---------------------------------------------------------------------*
+*&      Form  PROCESS_DATA
+*&---------------------------------------------------------------------*
+FORM process_data.
+
+  LOOP AT it_pa0000 INTO wa_pa0000.
+
+    CLEAR wa_final.
+
+    wa_final-pernr = wa_pa0000-pernr.
+    wa_final-massn = wa_pa0000-massn.
+    wa_final-uname = wa_pa0000-uname.           " Latest separation action changed by
+    wa_final-aedtm = wa_pa0000-aedtm.           " Changed on
+    wa_final-begda = wa_pa0000-begda.           " SAP separation date
+    wa_final-dat02 = wa_pa0000-begda - 1.       " Last working date = day before separation
+
+    " ---------- Reason for action (MASSG) ----------
+    CASE wa_pa0000-massg.
+      WHEN '00'. wa_final-massg_txt = 'Abscond'.
+      WHEN '01'. wa_final-massg_txt = 'Resignation'.
+      WHEN '02'. wa_final-massg_txt = 'Termination'.
+      WHEN '03'. wa_final-massg_txt = 'Retirement'.
+      WHEN '04'. wa_final-massg_txt = 'Permanent Disablement'.
+      WHEN '05'. wa_final-massg_txt = 'Death'.
+      WHEN '06'. wa_final-massg_txt = 'VRS'.
+      WHEN '07'. wa_final-massg_txt = 'Completion of Training Period'.
+      WHEN '08'. wa_final-massg_txt = 'Transfer to Group Company'.
+      WHEN OTHERS. wa_final-massg_txt = wa_pa0000-massg.
+    ENDCASE.
+
+    " ---------- Name & gender from PA0002 ----------
+    READ TABLE it_pa0002 INTO wa_pa0002 WITH KEY pernr = wa_pa0000-pernr BINARY SEARCH.
+    IF sy-subrc = 0.
+      CONCATENATE wa_pa0002-vorna wa_pa0002-nach2 wa_pa0002-nachn
+        INTO wa_final-name SEPARATED BY space.
+      CONDENSE wa_final-name.
+
+      CASE wa_pa0002-gesch.
+        WHEN '1'. wa_final-gender = 'Male'.
+        WHEN '2'. wa_final-gender = 'Female'.
+        WHEN OTHERS. wa_final-gender = 'Other'.
+      ENDCASE.
+    ENDIF.
+
+    " ---------- Company code, grade, seating location from PA0001/T001P ----------
+    READ TABLE it_pa0001 INTO wa_pa0001 WITH KEY pernr = wa_pa0000-pernr BINARY SEARCH.
+    IF sy-subrc = 0.
+      wa_final-bukrs = wa_pa0001-bukrs.
+      wa_final-grade = wa_pa0001-persk.
+
+      READ TABLE it_t001p INTO wa_t001p WITH KEY btrtl = wa_pa0001-btrtl BINARY SEARCH.
+      IF sy-subrc = 0.
+        wa_final-seat_loc = wa_t001p-btext.
+      ENDIF.
+
+      " ---------- Reporting / Line manager via HRP1001 ----------
+      CLEAR: wa_hrp1001, lv_sobid_pos, lv_mgr_pernr.
+      IF wa_pa0001-plans IS NOT INITIAL.
+        SELECT SINGLE * FROM hrp1001 INTO wa_hrp1001
+          WHERE plvar = '01'
+            AND objid = wa_pa0001-plans
+            AND rsign = 'A'
+            AND sclas = 'S'
+            AND relat = '002'
+            AND begda LE sy-datum
+            AND endda GE sy-datum.
+        IF sy-subrc = 0.
+          lv_sobid_pos = wa_hrp1001-sobid.
+
+          CLEAR wa_hrp1001.
+          SELECT SINGLE * FROM hrp1001 INTO wa_hrp1001
+            WHERE plvar = '01'
+              AND objid = lv_sobid_pos
+              AND otype = 'S'
+              AND rsign = 'A'
+              AND sclas = 'P'
+              AND relat = '008'
+              AND begda LE sy-datum
+              AND endda GE sy-datum.
+          IF sy-subrc = 0.
+            lv_mgr_pernr = wa_hrp1001-sobid.
+            wa_final-mgr_pernr = lv_mgr_pernr.
+
+            CLEAR wa_mgr_name.
+            SELECT SINGLE pernr begda endda gesch nach2 nachn vorna
+              INTO CORRESPONDING FIELDS OF wa_mgr_name
+              FROM pa0002
+              WHERE pernr = lv_mgr_pernr
+                AND endda = c_last_date.
+            IF sy-subrc = 0.
+              CONCATENATE wa_mgr_name-vorna wa_mgr_name-nach2 wa_mgr_name-nachn
+                INTO wa_final-mgr_name SEPARATED BY space.
+              CONDENSE wa_final-mgr_name.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+    " ---------- Date of joining from PA0041 ----------
+    READ TABLE it_pa0041 INTO wa_pa0041 WITH KEY pernr = wa_pa0000-pernr BINARY SEARCH.
+    IF sy-subrc = 0.
+      IF wa_pa0041-dar01 = '01'.
+        wa_final-dat01 = wa_pa0041-dat01.
+      ENDIF.
+      IF wa_pa0041-dar02 = 'VA'.
+        wa_final-dat01 = wa_pa0041-dat02.
+      ENDIF.
+      IF wa_pa0041-dar03 = 'VA'.
+        wa_final-dat01 = wa_pa0041-dat03.
+      ENDIF.
+    ENDIF.
+
+    " ---------- Private mail id from PA0105 ----------
+    READ TABLE it_pa0105 INTO wa_pa0105 WITH KEY pernr = wa_pa0000-pernr BINARY SEARCH.
+    IF sy-subrc = 0.
+      wa_final-usrid_long = wa_pa0105-usrid_long.
+    ENDIF.
+
+    APPEND wa_final TO it_final.
+
+  ENDLOOP.
+
+  SORT it_final BY pernr.
+  DELETE ADJACENT DUPLICATES FROM it_final COMPARING pernr.
+
+  WRITE: / 'DEBUG: Final output rows =', lines( it_final ).
+
+ENDFORM.                    "process_data
+
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_ALV
+*&---------------------------------------------------------------------*
+FORM display_alv.
+
+  DATA: lt_fcat   TYPE slis_t_fieldcat_alv,
+        ls_fcat   TYPE slis_fieldcat_alv,
+        ls_layout TYPE slis_layout_alv.
+
+  IF it_final IS INITIAL.
+    MESSAGE 'No separated employees found for the given selection' TYPE 'I'.
+    RETURN.
+  ENDIF.
+
+  DEFINE add_fcat.
+    CLEAR ls_fcat.
+    ls_fcat-fieldname = &1.
+    ls_fcat-seltext_m = &2.
+    ls_fcat-outputlen = &3.
+    APPEND ls_fcat TO lt_fcat.
+  END-OF-DEFINITION.
+
+  add_fcat: 'PERNR'      'Employee No'         10,
+            'NAME'       'Employee Name'       30,
+            'BUKRS'      'Company Code'        10,
+            'GENDER'     'Gender'              10,
+            'SEAT_LOC'   'Seating Location'    25,
+            'MGR_PERNR'  'Manager Pernr'       12,
+            'MGR_NAME'   'Reporting Manager'   30,
+            'DAT01'      'Date of Joining'     12,
+            'GRADE'      'Grade/Band'          10,
+            'DAT02'      'Last Working Date'   14,
+            'BEGDA'      'SAP Separation Date' 16,
+            'MASSG_TXT'  'Reason'              25,
+            'USRID_LONG' 'Private Mail ID'     35,
+            'MASSN'      'Latest Sep. Action'  16,
+            'UNAME'      'Changed By'          12,
+            'AEDTM'      'Changed On'          12.
+
+  ls_layout-zebra             = 'X'.
+  ls_layout-colwidth_optimize = 'X'.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = sy-repid
+      is_layout           = ls_layout
+      it_fieldcat          = lt_fcat
+    TABLES
+      t_outtab              = it_final
+    EXCEPTIONS
+      program_error        = 1
+      OTHERS                = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE 'Error displaying ALV' TYPE 'I'.
+  ENDIF.
+
+ENDFORM.                    "display_alv

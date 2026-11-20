@@ -1,0 +1,105 @@
+REPORT Z_WORKAREAASDATATYPE.
+* EXAMPLE 1: EMPLOYEE
+WRITE: / 'WORK AREA AS DATA TYPE - EMPLOYEE'.
+ULINE.
+
+TYPES: BEGIN OF ty_emp,
+         eno   TYPE n LENGTH 3,
+         ename TYPE c LENGTH 14,
+         esal  TYPE i,
+       END OF ty_emp.
+
+DATA: wa  TYPE ty_emp,
+      wa1 TYPE ty_emp.
+
+wa-eno   = 901.
+wa-ename = 'SURAJ'.
+wa-esal  = 29582.
+
+wa1-eno   = 902.
+wa1-ename = 'VEDANTH'.
+wa1-esal  = 54932.
+
+WRITE: / wa-eno COLOR 1, wa-ename COLOR 2, wa-esal COLOR 3,
+       / wa1-eno COLOR 1, wa1-ename COLOR 2, wa1-esal COLOR 3.
+
+ULINE.
+
+* EXAMPLE 2: STUDENT
+WRITE: / 'WORK AREA AS DATA TYPE - STUDENT'.
+ULINE.
+
+TYPES: BEGIN OF ty_student,
+         sid   TYPE n LENGTH 3,
+         sname TYPE c LENGTH 15,
+         marks TYPE i,
+       END OF ty_student.
+
+DATA: ws1 TYPE ty_student,
+      ws2 TYPE ty_student.
+
+ws1-sid   = 101.
+ws1-sname = 'NARUTO'.
+ws1-marks = 88.
+
+ws2-sid   = 102.
+ws2-sname = 'SASUKE'.
+ws2-marks = 92.
+
+WRITE: / ws1-sid COLOR 4, ws1-sname COLOR 5, ws1-marks COLOR 6,
+       / ws2-sid COLOR 4, ws2-sname COLOR 5, ws2-marks COLOR 6.
+
+ULINE.
+
+* EXAMPLE 3: PRODUCT
+WRITE: / 'WORK AREA AS DATA TYPE - PRODUCT'.
+ULINE.
+
+TYPES: BEGIN OF ty_product,
+         pid   TYPE n LENGTH 3,
+         pname TYPE c LENGTH 20,
+         price TYPE i,
+       END OF ty_product.
+
+DATA: wp1 TYPE ty_product,
+      wp2 TYPE ty_product.
+
+wp1-pid   = 501.
+wp1-pname = 'LAPTOP'.
+wp1-price = 55000.
+
+wp2-pid   = 502.
+wp2-pname = 'MOBILE'.
+wp2-price = 20000.
+
+WRITE: / wp1-pid COLOR 1, wp1-pname COLOR 2, wp1-price COLOR 3,
+       / wp2-pid COLOR 1, wp2-pname COLOR 2, wp2-price COLOR 3.
+
+ULINE.
+* EXAMPLE 4: VEHICLE
+WRITE: / 'WORK AREA AS DATA TYPE - VEHICLE'.
+ULINE.
+
+TYPES: BEGIN OF ty_vehicle,
+         vid   TYPE n LENGTH 3,
+         vname TYPE c LENGTH 20,
+         price TYPE i,
+       END OF ty_vehicle.
+
+DATA: wv1 TYPE ty_vehicle,
+      wv2 TYPE ty_vehicle.
+
+wv1-vid   = 301.
+wv1-vname = 'CAR'.
+wv1-price = 800000.
+
+wv2-vid   = 302.
+wv2-vname = 'BIKE'.
+wv2-price = 120000.
+
+WRITE: / wv1-vid COLOR 6, wv1-vname COLOR 7, wv1-price COLOR 1,
+       / wv2-vid COLOR 6, wv2-vname COLOR 7, wv2-price COLOR 1.
+
+ULINE.
+
+WRITE: / '===== END OF PROGRAM ====='.

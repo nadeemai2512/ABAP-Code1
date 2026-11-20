@@ -1,0 +1,195 @@
+REPORT Z_CLASS_DEMO.
+
+* LOCAL CLASS DEFINITION
+CLASS lcl_employee DEFINITION.
+  PUBLIC SECTION.
+    " Instance attributes
+    DATA: mv_employee_id TYPE string,
+          mv_first_name  TYPE string,
+          mv_last_name   TYPE string,
+          mv_salary      TYPE f.
+
+    " Static attribute (shared across all instances)
+    CLASS-DATA: gv_company_name TYPE string VALUE 'SAP SE'.
+
+    " Static constant
+    CLASS-DATA: gv_company_code TYPE string VALUE 'SAP' READ-ONLY.
+
+    " Constructor (instance)
+    METHODS: constructor IMPORTING iv_employee_id TYPE string
+                                   iv_first_name  TYPE string
+                                   iv_last_name   TYPE string
+                                   iv_salary      TYPE f.
+
+    " Instance methods
+    METHODS: get_full_name RETURNING VALUE(rv_full_name) TYPE string,
+             get_annual_salary RETURNING VALUE(rv_annual) TYPE f,
+             display_employee_info,
+             increase_salary IMPORTING iv_percentage TYPE f.
+
+    " Static method
+    CLASS-METHODS: display_company_info.
+
+  PRIVATE SECTION.
+    " Private instance attribute
+    DATA: mv_tax_rate TYPE f VALUE '0.20'.
+
+    " Private instance method
+    METHODS: calculate_tax RETURNING VALUE(rv_tax) TYPE f.
+
+ENDCLASS.
+
+* LOCAL CLASS IMPLEMENTATION
+CLASS lcl_employee IMPLEMENTATION.
+
+  METHOD constructor.
+    mv_employee_id = iv_employee_id.
+    mv_first_name  = iv_first_name.
+    mv_last_name   = iv_last_name.
+    mv_salary      = iv_salary.
+  ENDMETHOD.
+
+  METHOD get_full_name.
+    CONCATENATE mv_first_name mv_last_name INTO rv_full_name SEPARATED BY space.
+  ENDMETHOD.
+
+  METHOD get_annual_salary.
+    rv_annual = mv_salary * 12.
+  ENDMETHOD.
+
+  METHOD display_employee_info.
+    WRITE: / 'Employee ID:', mv_employee_id,
+           / 'Full Name:', get_full_name( ),
+           / 'Monthly Salary:', mv_salary,
+           / 'Annual Salary:', get_annual_salary( ),
+           / 'Tax Amount:', calculate_tax( ),
+           / 'Company:', lcl_employee=>gv_company_name.
+    ULINE.
+  ENDMETHOD.
+
+  METHOD increase_salary.
+    mv_salary = mv_salary * ( 1 + iv_percentage / 100 ).
+  ENDMETHOD.
+
+  METHOD calculate_tax.
+    rv_tax = mv_salary * mv_tax_rate.
+  ENDMETHOD.
+
+  METHOD display_company_info.
+    WRITE: / 'Company Information:',
+           / 'Name:', gv_company_name,
+           / 'Code:', gv_company_code.
+    ULINE.
+  ENDMETHOD.
+
+ENDCLASS.
+
+* GLOBAL CLASS EXAMPLE
+CLASS lcl_global_utility DEFINITION.
+
+  PUBLIC SECTION.
+    " Static attributes
+    CLASS-DATA: gv_application_name TYPE string VALUE 'Employee Management System',
+                gv_version         TYPE string VALUE '1.0'.
+
+    " Static method
+    CLASS-METHODS: display_application_header,
+                   format_currency IMPORTING iv_amount      TYPE f
+                                   RETURNING VALUE(rv_formatted) TYPE string.
+
+
+
+
+ENDCLASS.
+
+CLASS lcl_global_utility IMPLEMENTATION.
+
+  METHOD display_application_header.
+    WRITE: / '========================================',
+           / '  ', gv_application_name,
+           / '  Version:', gv_version,
+           / '  Date:', sy-datum,
+           / '========================================'.
+    ULINE.
+  ENDMETHOD.
+
+  METHOD format_currency.
+    rv_formatted = |$ { iv_amount }|.
+  ENDMETHOD.
+
+ENDCLASS.
+
+* START-OF-SELECTION - Main Program
+START-OF-SELECTION.
+
+  DATA: lo_employee1 TYPE REF TO lcl_employee,
+        lo_employee2 TYPE REF TO lcl_employee,
+        lv_full_name TYPE string,
+        lv_annual    TYPE f.
+
+  " Display application header using global utility class
+  lcl_global_utility=>display_application_header( ).
+
+  " Create employee instances
+  CREATE OBJECT lo_employee1
+    EXPORTING
+      iv_employee_id = 'EMP001'
+      iv_first_name  = 'John'
+      iv_last_name   = 'Doe'
+      iv_salary      = '5000.00'.
+
+  CREATE OBJECT lo_employee2
+    EXPORTING
+      iv_employee_id = 'EMP002'
+      iv_first_name  = 'Jane'
+      iv_last_name   = 'Smith'
+      iv_salary      = '6200.00'.
+
+  " Display employee information using instance methods
+  WRITE: / 'EMPLOYEE 1 INFORMATION:'.
+  lo_employee1->display_employee_info( ).
+
+  WRITE: / 'EMPLOYEE 2 INFORMATION:'.
+  lo_employee2->display_employee_info( ).
+
+  " Demonstrate accessing static attributes
+  WRITE: / 'STATIC ATTRIBUTE ACCESS:'.
+  WRITE: / 'Company Name (via class):', lcl_employee=>gv_company_name.
+  WRITE: / 'Company Code (constant):', lcl_employee=>gv_company_code.
+  ULINE.
+
+  " Demonstrate static method call
+  WRITE: / 'STATIC METHOD CALL:'.
+  lcl_employee=>display_company_info( ).
+
+  " Demonstrate instance method
+  WRITE: / 'INSTANCE METHOD - FORMATTED CURRENCY:'.
+  WRITE: / 'John''s formatted salary:',
+          lcl_global_utility=>format_currency( lo_employee1->mv_salary ).
+  ULINE.
+
+  " Demonstrate modifying salary using instance method
+  WRITE: / 'AFTER 10% SALARY INCREASE:'.
+  lo_employee1->increase_salary( iv_percentage = '10.0' ).
+  lo_employee1->display_employee_info( ).
+
+  " Demonstrate accessing static attributes can be changed
+  lcl_employee=>gv_company_name = 'SAP India Pvt Ltd'.
+
+  WRITE: / 'UPDATED COMPANY NAME:'.
+  WRITE: / 'Company Name:', lcl_employee=>gv_company_name.
+  lo_employee2->display_employee_info( ).
+
+  " Demonstrate GET methods
+  lv_full_name = lo_employee2->get_full_name( ).
+  lv_annual = lo_employee2->get_annual_salary( ).
+
+  WRITE: / 'USING GET METHODS:'.
+  WRITE: / 'Full Name:', lv_full_name.
+  WRITE: / 'Annual Salary:', lv_annual.
+  ULINE.
+
+  WRITE: / 'END OF PROGRAM'.
+
+* END-OF-SELECTION
+END-OF-SELECTION.

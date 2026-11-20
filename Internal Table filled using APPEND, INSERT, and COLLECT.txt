@@ -1,0 +1,140 @@
+REPORT Z_INTERNALTABLEWITHAPPEND.
+
+WRITE: / 'APPEND: Just adds a line at the end.' COLOR 3.
+
+TYPES: BEGIN OF ty_emp,
+         emp_no   TYPE n LENGTH 3,
+         emp_name TYPE c LENGTH 15,
+         emp_ph   TYPE n LENGTH 10,
+         emp_city TYPE c LENGTH 15,
+         emp_sal  TYPE i,
+       END OF ty_emp.
+
+DATA: it_emp TYPE TABLE OF ty_emp,
+      wa_emp TYPE ty_emp.
+
+*---------------------------------------------------------------------*
+* APPEND EXAMPLES
+*---------------------------------------------------------------------*
+
+wa_emp-emp_no   = 101.
+wa_emp-emp_name = 'VIRAT'.
+wa_emp-emp_ph   = 9876543210.
+wa_emp-emp_city = 'DELHI'.
+wa_emp-emp_sal  = 10000.
+APPEND wa_emp TO it_emp.
+CLEAR wa_emp.
+
+wa_emp-emp_no   = 102.
+wa_emp-emp_name = 'RAHUL'.
+wa_emp-emp_ph   = 9876541235.
+wa_emp-emp_city = 'AMEERPET'.
+wa_emp-emp_sal  = 8300.
+APPEND wa_emp TO it_emp.
+CLEAR wa_emp.
+
+wa_emp-emp_no   = 103.
+wa_emp-emp_name = 'SACHIN'.
+wa_emp-emp_ph   = 9999999999.
+wa_emp-emp_city = 'HITECH CITY'.
+wa_emp-emp_sal  = 9300.
+APPEND wa_emp TO it_emp.
+CLEAR wa_emp.
+
+wa_emp-emp_no   = 104.
+wa_emp-emp_name = 'DHONI'.
+wa_emp-emp_ph   = 8888888888.
+wa_emp-emp_city = 'MUMBAI'.
+wa_emp-emp_sal  = 9200.
+APPEND wa_emp TO it_emp.
+CLEAR wa_emp.
+
+LOOP AT it_emp INTO wa_emp.
+  WRITE: / sy-tabix LEFT-JUSTIFIED,
+           wa_emp-emp_no,
+           wa_emp-emp_name,
+           wa_emp-emp_ph,
+           wa_emp-emp_city,
+           wa_emp-emp_sal LEFT-JUSTIFIED.
+ENDLOOP.
+
+ULINE.
+
+*---------------------------------------------------------------------*
+* INSERT EXAMPLE
+*---------------------------------------------------------------------*
+
+WRITE: / 'INSERT: Inserts at a specific position.' COLOR 3.
+
+wa_emp-emp_no   = 105.
+wa_emp-emp_name = 'ROHIT'.
+wa_emp-emp_ph   = 7777777777.
+wa_emp-emp_city = 'HYDERABAD'.
+wa_emp-emp_sal  = 8000.
+
+INSERT wa_emp INTO it_emp INDEX 1.
+CLEAR wa_emp.
+
+LOOP AT it_emp INTO wa_emp.
+  IF sy-tabix = 1.
+    WRITE: / sy-tabix LEFT-JUSTIFIED COLOR 5,
+             wa_emp-emp_no COLOR 5,
+             wa_emp-emp_name COLOR 5,
+             wa_emp-emp_ph COLOR 5,
+             wa_emp-emp_city COLOR 5,
+             wa_emp-emp_sal LEFT-JUSTIFIED COLOR 5,
+             '<<<INSERTED VALUE IN POSITION 1' COLOR 5.
+  ELSE.
+    WRITE: / sy-tabix LEFT-JUSTIFIED,
+             wa_emp-emp_no,
+             wa_emp-emp_name,
+             wa_emp-emp_ph,
+             wa_emp-emp_city,
+             wa_emp-emp_sal LEFT-JUSTIFIED.
+  ENDIF.
+ENDLOOP.
+
+ULINE.
+
+*---------------------------------------------------------------------*
+* COLLECT EXAMPLE
+*---------------------------------------------------------------------*
+
+WRITE: / 'COLLECT: Adds values if key is same.' COLOR 3.
+
+CLEAR it_emp.
+
+wa_emp-emp_no   = 100.
+wa_emp-emp_name = 'SACHIN'.
+wa_emp-emp_ph   = 9000000000.
+wa_emp-emp_city = 'HITECH CITY'.
+wa_emp-emp_sal  = 8000.
+COLLECT wa_emp INTO it_emp.
+CLEAR wa_emp.
+
+wa_emp-emp_no   = 100.
+wa_emp-emp_name = 'SACHIN'.
+wa_emp-emp_ph   = 9000000000.
+wa_emp-emp_city = 'HITECH CITY'.
+wa_emp-emp_sal  = 5000.
+COLLECT wa_emp INTO it_emp.
+CLEAR wa_emp.
+
+LOOP AT it_emp INTO wa_emp.
+  IF sy-tabix = 1.
+    WRITE: / sy-tabix LEFT-JUSTIFIED COLOR 5,
+             wa_emp-emp_no COLOR 5,
+             wa_emp-emp_name COLOR 5,
+             wa_emp-emp_ph COLOR 5,
+             wa_emp-emp_city COLOR 5,
+             wa_emp-emp_sal LEFT-JUSTIFIED COLOR 5,
+             '<<<COLLECTED (SALARY ADDED)' COLOR 5.
+  ELSE.
+    WRITE: / sy-tabix LEFT-JUSTIFIED,
+             wa_emp-emp_no,
+             wa_emp-emp_name,
+             wa_emp-emp_ph,
+             wa_emp-emp_city,
+             wa_emp-emp_sal LEFT-JUSTIFIED.
+  ENDIF.
+ENDLOOP.

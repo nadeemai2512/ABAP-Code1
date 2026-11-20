@@ -1,0 +1,127 @@
+REPORT Z_INTERNALTABLEWITHHEADERLINE.
+* TYPE DECLARATION
+TYPES: BEGIN OF ty_emp,
+         emp_no   TYPE numc3,
+         emp_name TYPE char15,
+         emp_city TYPE char15,
+         emp_sal  TYPE i,
+       END OF ty_emp.
+
+* INTERNAL TABLE WITH HEADER LINE
+DATA: it_emp TYPE TABLE OF ty_emp WITH HEADER LINE,
+      it_emp2 TYPE TABLE OF ty_emp WITH HEADER LINE.
+
+DATA: lv_lines TYPE i.
+* APPEND DATA
+it_emp-emp_no = 101. it_emp-emp_name = 'ARJUN'. it_emp-emp_city = 'BLR'. it_emp-emp_sal = 15000. APPEND it_emp.
+it_emp-emp_no = 102. it_emp-emp_name = 'KIRAN'. it_emp-emp_city = 'PUNE'. it_emp-emp_sal = 12000. APPEND it_emp.
+it_emp-emp_no = 103. it_emp-emp_name = 'NEHA'. it_emp-emp_city = 'CHENNAI'. it_emp-emp_sal = 14000. APPEND it_emp.
+it_emp-emp_no = 104. it_emp-emp_name = 'ROHAN'. it_emp-emp_city = 'DELHI'. it_emp-emp_sal = 13000. APPEND it_emp.
+it_emp-emp_no = 105. it_emp-emp_name = 'PRIYA'. it_emp-emp_city = 'HYD'. it_emp-emp_sal = 11000. APPEND it_emp.
+it_emp-emp_no = 106. it_emp-emp_name = 'ANIL'. it_emp-emp_city = 'MUMBAI'. it_emp-emp_sal = 12500. APPEND it_emp.
+it_emp-emp_no = 107. it_emp-emp_name = 'MEENA'. it_emp-emp_city = 'KOLKATA'. it_emp-emp_sal = 13500. APPEND it_emp.
+
+WRITE: / '--- INITIAL DATA ---'.
+LOOP AT it_emp.
+  WRITE: / sy-tabix, it_emp-emp_no, it_emp-emp_name, it_emp-emp_city, it_emp-emp_sal.
+ENDLOOP.
+
+ULINE.
+* INSERT
+it_emp-emp_no = 108. it_emp-emp_name = 'RAJ'. it_emp-emp_city = 'NOIDA'. it_emp-emp_sal = 10000.
+INSERT it_emp INDEX 2.
+
+WRITE: / '--- AFTER INSERT ---'.
+LOOP AT it_emp.
+  WRITE: / sy-tabix, it_emp-emp_no, it_emp-emp_name, it_emp-emp_city, it_emp-emp_sal.
+ENDLOOP.
+
+ULINE.
+* COLLECT
+CLEAR it_emp2.
+
+it_emp2-emp_no = 200. it_emp2-emp_name = 'SUMIT'. it_emp2-emp_city = 'DELHI'. it_emp2-emp_sal = 5000. COLLECT it_emp2.
+it_emp2-emp_no = 200. it_emp2-emp_name = 'SUMIT'. it_emp2-emp_city = 'DELHI'. it_emp2-emp_sal = 3000. COLLECT it_emp2.
+
+WRITE: / '--- COLLECT RESULT ---'.
+LOOP AT it_emp2.
+  WRITE: / it_emp2-emp_no, it_emp2-emp_name, it_emp2-emp_city, it_emp2-emp_sal.
+ENDLOOP.
+
+ULINE.
+* APPEND LINES
+APPEND LINES OF it_emp FROM 3 TO 6 TO it_emp2.
+
+WRITE: / '--- APPEND LINES ---'.
+LOOP AT it_emp2.
+  WRITE: / it_emp2-emp_no, it_emp2-emp_name, it_emp2-emp_city, it_emp2-emp_sal.
+ENDLOOP.
+
+ULINE.
+* MODIFY
+it_emp-emp_no = 199. it_emp-emp_name = 'UPDATED'. it_emp-emp_city = 'NEWCITY'. it_emp-emp_sal = 20000.
+MODIFY it_emp INDEX 4.
+
+WRITE: / '--- AFTER MODIFY ---'.
+LOOP AT it_emp.
+  WRITE: / it_emp-emp_no, it_emp-emp_name, it_emp-emp_city, it_emp-emp_sal.
+ENDLOOP.
+
+ULINE.
+* READ TABLE
+SORT it_emp BY emp_no.
+
+READ TABLE it_emp WITH KEY emp_no = 104 BINARY SEARCH.
+IF sy-subrc = 0.
+  WRITE: / 'FOUND:', it_emp-emp_no, it_emp-emp_name.
+ELSE.
+  WRITE: / 'NOT FOUND'.
+ENDIF.
+
+ULINE.
+* MOVE
+DATA: it_copy TYPE TABLE OF ty_emp WITH HEADER LINE.
+
+it_copy[] = it_emp[].
+
+WRITE: / '--- COPY TABLE ---'.
+LOOP AT it_copy.
+  WRITE: / it_copy-emp_no, it_copy-emp_name.
+ENDLOOP.
+
+ULINE.
+* DELETE
+DELETE it_emp WHERE emp_no = 102.
+
+WRITE: / '--- AFTER DELETE ---'.
+LOOP AT it_emp.
+  WRITE: / it_emp-emp_no, it_emp-emp_name.
+ENDLOOP.
+
+ULINE.
+* DESCRIBE
+DESCRIBE TABLE it_emp LINES lv_lines.
+WRITE: / 'TOTAL RECORDS:', lv_lines.
+
+ULINE.
+* CLEAR
+CLEAR it_emp.
+
+WRITE: / '--- AFTER CLEAR HEADER ---'.
+WRITE: / it_emp-emp_no, it_emp-emp_name.
+
+ULINE.
+* REFRESH
+REFRESH it_emp.
+
+WRITE: / '--- AFTER REFRESH (TABLE EMPTY) ---'.
+DESCRIBE TABLE it_emp LINES lv_lines.
+WRITE: / 'LINES:', lv_lines.
+
+ULINE.
+* FREE
+FREE it_emp.
+
+WRITE: / '--- AFTER FREE MEMORY RELEASED ---'.
+DESCRIBE TABLE it_emp LINES lv_lines.
+WRITE: / 'LINES:', lv_lines.

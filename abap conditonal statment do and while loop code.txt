@@ -1,0 +1,23 @@
+REPORT Z_DOLOOPANDWHILELOOP.
+DATA COUNT TYPE I VALUE 1.
+DATA SUM TYPE I VALUE 0.
+
+WRITE: 'DO LOOP EXAMPLE'.
+WRITE: / '----------------------'.
+
+* DO LOOP (fixed number of times) *
+DO 10 TIMES.
+ WRITE: / 'Hello World:', SY-INDEX.
+ENDDO.
+
+WRITE: / '======================='.
+
+WRITE: / 'WHILE LOOP EXAMPLE'.
+WRITE: / '----------------------'.
+
+* WHILE LOOP (condition-based) *
+WHILE COUNT <= 10.
+  WRITE: / 'Hello World:', COUNT.
+  SUM = SUM + COUNT.
+  COUNT = COUNT + 1.
+ENDWHILE.

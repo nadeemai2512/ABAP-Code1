@@ -1,0 +1,419 @@
+REPORT Z_RE_ORDER_REPORT_PROJECT.
+
+*& TYPE DEFINITIONS
+
+TYPES: BEGIN OF TY_MARA,
+         MATNR TYPE MARA-MATNR,
+         MTART TYPE MARA-MTART,
+         MBRSH TYPE MARA-MBRSH,
+         MATKL TYPE MARA-MATKL,
+         MEINS TYPE MARA-MEINS,
+       END OF TY_MARA.
+
+TYPES: BEGIN OF TY_MARC,
+         MATNR TYPE MARC-MATNR,
+         WERKS TYPE MARC-WERKS,
+         EKGRP TYPE MARC-EKGRP,
+         MINBE TYPE MARC-MINBE,
+         BSTMI TYPE MARC-BSTMI,
+       END OF TY_MARC.
+
+TYPES: BEGIN OF TY_MARD,
+         MATNR TYPE MARD-MATNR,
+         WERKS TYPE MARD-WERKS,
+         LGORT TYPE MARD-LGORT,
+         LABST TYPE MARD-LABST,
+       END OF TY_MARD.
+
+TYPES: BEGIN OF TY_MAKT,
+         MATNR TYPE MAKT-MATNR,
+         SPRAS TYPE MAKT-SPRAS,
+         MAKTX TYPE MAKT-MAKTX,
+       END OF TY_MAKT.
+
+TYPES: BEGIN OF TY_MBEW,
+         MATNR TYPE MBEW-MATNR,
+         BWKEY TYPE MBEW-BWKEY,
+         BWTAR TYPE MBEW-BWTAR,
+         STPRS TYPE MBEW-STPRS,
+       END OF TY_MBEW.
+
+* Final output structure
+* A = LABST (actual stock), B = MINBE (re-order level), M = BSTMI (min. order qty), P = STPRS (std price)
+* SHORT = A - B  (shortage: stock minus reorder level)
+* VALUE = M * P  (order value: min order qty * standard price)
+TYPES: BEGIN OF TY_FINAL,
+         MATNR       TYPE MARA-MATNR,
+         MAKTX       TYPE MAKT-MAKTX,
+         MTART       TYPE MARA-MTART,
+         MBRSH       TYPE MARA-MBRSH,
+         MATKL       TYPE MARA-MATKL,
+         MEINS       TYPE MARA-MEINS,
+         WERKS       TYPE MARC-WERKS,
+         EKGRP       TYPE MARC-EKGRP,
+         MINBE       TYPE MARC-MINBE,    " (B) Re-order level
+         BSTMI       TYPE MARC-BSTMI,    " (M) Min. order qty
+         LGORT       TYPE MARD-LGORT,
+         LABST       TYPE MARD-LABST,    " (A) Actual stock (summed across storage locations)
+         BWKEY       TYPE MBEW-BWKEY,
+         BWTAR       TYPE MBEW-BWTAR,
+         STPRS       TYPE MBEW-STPRS,    " (P) Standard price
+         SHORT       TYPE P DECIMALS 3,  " A - B
+         VALUE       TYPE P DECIMALS 2,  " M * P
+       END OF TY_FINAL.
+
+*& INTERNAL TABLES AND WORK AREAS
+
+DATA: IT_MARA  TYPE STANDARD TABLE OF TY_MARA,
+      IT_MARC  TYPE STANDARD TABLE OF TY_MARC,
+      IT_MARD  TYPE STANDARD TABLE OF TY_MARD,
+      IT_MAKT  TYPE STANDARD TABLE OF TY_MAKT,
+      IT_MBEW  TYPE STANDARD TABLE OF TY_MBEW,
+      IT_FINAL TYPE STANDARD TABLE OF TY_FINAL.
+
+DATA: WA_MARA  TYPE TY_MARA,
+      WA_MARC  TYPE TY_MARC,
+      WA_MARD  TYPE TY_MARD,
+      WA_MAKT  TYPE TY_MAKT,
+      WA_MBEW  TYPE TY_MBEW,
+      WA_FINAL TYPE TY_FINAL.
+
+DATA: V_QTY TYPE MARD-LABST.
+
+* Dummy variables for SELECT-OPTIONS
+DATA: DV_WERKS TYPE MARC-WERKS,
+      DV_MATNR TYPE MARA-MATNR,
+      DV_MTART TYPE MARA-MTART,
+      DV_MATKL TYPE MARA-MATKL.
+
+*& SELECTION SCREEN
+SELECTION-SCREEN BEGIN OF BLOCK B1 WITH FRAME TITLE TEXT-001.
+  PARAMETERS:   P_WERKS TYPE MARC-WERKS OBLIGATORY.
+  SELECT-OPTIONS: S_MATNR FOR DV_MATNR,
+                  S_MTART FOR DV_MTART,
+                  S_MATKL FOR DV_MATKL.
+SELECTION-SCREEN END OF BLOCK B1.
+
+SELECTION-SCREEN BEGIN OF BLOCK B2 WITH FRAME TITLE TEXT-002.
+  PARAMETERS: R1 RADIOBUTTON GROUP RG1,
+              R2 RADIOBUTTON GROUP RG1 DEFAULT 'X'.
+SELECTION-SCREEN END OF BLOCK B2.
+
+*& INITIALIZATION
+INITIALIZATION.
+  %_P_WERKS_%_APP_%-TEXT = 'Plant'.
+  %_S_MATNR_%_APP_%-TEXT = 'Material Number'.
+  %_S_MTART_%_APP_%-TEXT = 'Material Type'.
+  %_S_MATKL_%_APP_%-TEXT = 'Material Group'.
+  %_R1_%_APP_%-TEXT      = 'All Materials'.
+  %_R2_%_APP_%-TEXT      = 'Material Below Re-Order Level'.
+
+*& AT SELECTION-SCREEN OUTPUT  (field disabling as per requirement)
+
+AT SELECTION-SCREEN OUTPUT.
+* Add field disabling logic here as per user requirement
+* Example: LOOP AT SCREEN. IF screen-name = 'S_MTART-LOW'. screen-input = 0. ENDIF. MODIFY SCREEN. ENDLOOP.
+
+*& AT SELECTION-SCREEN  (validations)
+
+AT SELECTION-SCREEN.
+  PERFORM VALIDATE_PLANT.
+  PERFORM VALIDATE_MATTYPE.
+  PERFORM VALIDATE_MATGROUP.
+
+*& START-OF-SELECTION
+
+START-OF-SELECTION.
+  PERFORM GET_DATA.
+  PERFORM PROCESS_DATA.
+  PERFORM BUILD_FCAT.
+  PERFORM DISPLAY_ALV.
+
+*& FORM: VALIDATE_PLANT
+
+FORM VALIDATE_PLANT.
+  DATA: LV_WERKS TYPE T001W-WERKS.
+
+  IF P_WERKS IS NOT INITIAL.
+    SELECT SINGLE WERKS
+      INTO LV_WERKS
+      FROM T001W
+      WHERE WERKS = P_WERKS.
+
+    IF SY-SUBRC <> 0.
+      MESSAGE 'Invalid Plant. Please enter a valid Plant.' TYPE 'E'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+*& FORM: VALIDATE_MATTYPE
+
+FORM VALIDATE_MATTYPE.
+  DATA: LV_MTART TYPE T134-MTART.
+
+  IF S_MTART IS NOT INITIAL.
+    SELECT SINGLE MTART
+      INTO LV_MTART
+      FROM T134
+      WHERE MTART IN S_MTART.
+
+    IF SY-SUBRC <> 0.
+      MESSAGE 'Invalid Material Type. Please enter a valid Material Type.' TYPE 'E'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+*& FORM: VALIDATE_MATGROUP
+
+FORM VALIDATE_MATGROUP.
+  DATA: LV_MATKL TYPE T023-MATKL.
+
+  IF S_MATKL IS NOT INITIAL.
+    SELECT SINGLE MATKL
+      INTO LV_MATKL
+      FROM T023
+      WHERE MATKL IN S_MATKL.
+
+    IF SY-SUBRC <> 0.
+      MESSAGE 'Invalid Material Group. Please enter a valid Material Group.' TYPE 'E'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+*& FORM: GET_DATA
+
+FORM GET_DATA.
+
+  " Step 1: Fetch MARA - General Material Data
+  SELECT MATNR MTART MBRSH MATKL MEINS
+    INTO TABLE IT_MARA
+    FROM MARA
+    WHERE MATNR IN S_MATNR
+      AND MTART IN S_MTART
+      AND MATKL IN S_MATKL.
+
+  IF IT_MARA IS INITIAL.
+    MESSAGE 'No materials found for the given selection criteria.' TYPE 'I'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  SORT IT_MARA BY MATNR.
+
+  " Step 2: Fetch MARC - Plant/MRP Data (Re-order Level & Min. Order Qty)
+  SELECT MATNR WERKS EKGRP MINBE BSTMI
+    INTO TABLE IT_MARC
+    FROM MARC
+    FOR ALL ENTRIES IN IT_MARA
+    WHERE MATNR = IT_MARA-MATNR
+      AND WERKS = P_WERKS.
+
+  IF IT_MARC IS INITIAL.
+    MESSAGE 'No plant data found for selected materials and plant.' TYPE 'I'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  SORT IT_MARC BY MATNR WERKS.
+
+  " Step 3: Fetch MARD - Storage Location Stock (Unrestricted)
+  SELECT MATNR WERKS LGORT LABST
+    INTO TABLE IT_MARD
+    FROM MARD
+    FOR ALL ENTRIES IN IT_MARC
+    WHERE MATNR = IT_MARC-MATNR
+      AND WERKS = IT_MARC-WERKS.
+
+  SORT IT_MARD BY MATNR WERKS LGORT.
+
+  " Step 4: Fetch MAKT - Material Description (in logon language)
+  SELECT MATNR SPRAS MAKTX
+    INTO TABLE IT_MAKT
+    FROM MAKT
+    FOR ALL ENTRIES IN IT_MARA
+    WHERE MATNR = IT_MARA-MATNR
+      AND SPRAS = SY-LANGU.
+
+  SORT IT_MAKT BY MATNR.
+
+  " Step 5: Fetch MBEW - Material Valuation / Standard Price
+  SELECT MATNR BWKEY BWTAR STPRS
+    INTO TABLE IT_MBEW
+    FROM MBEW
+    FOR ALL ENTRIES IN IT_MARC
+    WHERE MATNR = IT_MARC-MATNR
+      AND BWKEY = IT_MARC-WERKS.
+
+  SORT IT_MBEW BY MATNR BWKEY.
+
+ENDFORM.
+
+*& FORM: PROCESS_DATA
+*& Logic: Loop at IT_MARC, sum LABST from IT_MARD per material+plant,
+*&        compare with MINBE, populate IT_FINAL based on radio button.
+
+FORM PROCESS_DATA.
+
+  CLEAR IT_FINAL.
+
+  LOOP AT IT_MARC INTO WA_MARC.
+
+    CLEAR: WA_FINAL, WA_MARA, WA_MAKT, WA_MBEW, V_QTY.
+
+    " Move plant data (re-order level, min. order qty) to work area
+    WA_FINAL-MATNR = WA_MARC-MATNR.
+    WA_FINAL-WERKS = WA_MARC-WERKS.
+    WA_FINAL-EKGRP = WA_MARC-EKGRP.
+    WA_FINAL-MINBE = WA_MARC-MINBE.   " (B) Re-order level
+    WA_FINAL-BSTMI = WA_MARC-BSTMI.   " (M) Min. order qty
+
+    " Read MARA for general material data
+    READ TABLE IT_MARA INTO WA_MARA
+      WITH KEY MATNR = WA_MARC-MATNR
+      BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      WA_FINAL-MTART = WA_MARA-MTART.
+      WA_FINAL-MBRSH = WA_MARA-MBRSH.
+      WA_FINAL-MATKL = WA_MARA-MATKL.
+      WA_FINAL-MEINS = WA_MARA-MEINS.
+    ENDIF.
+
+    " Read MAKT for material description
+    READ TABLE IT_MAKT INTO WA_MAKT
+      WITH KEY MATNR = WA_MARC-MATNR
+      BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      WA_FINAL-MAKTX = WA_MAKT-MAKTX.
+    ENDIF.
+
+    " Read MBEW for standard price (P)
+    READ TABLE IT_MBEW INTO WA_MBEW
+      WITH KEY MATNR = WA_MARC-MATNR
+               BWKEY = WA_MARC-WERKS
+      BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      WA_FINAL-BWKEY = WA_MBEW-BWKEY.
+      WA_FINAL-BWTAR = WA_MBEW-BWTAR.
+      WA_FINAL-STPRS = WA_MBEW-STPRS.   " (P) Standard price
+    ENDIF.
+
+    " Sum LABST (A) across all storage locations for this material + plant
+    CLEAR V_QTY.
+    LOOP AT IT_MARD INTO WA_MARD
+      WHERE MATNR = WA_MARC-MATNR
+        AND WERKS = WA_MARC-WERKS.
+      V_QTY = V_QTY + WA_MARD-LABST.
+    ENDLOOP.
+
+    WA_FINAL-LABST = V_QTY.            " (A) Total unrestricted stock
+
+    " SHORT = A - B  (negative means shortage)
+    WA_FINAL-SHORT = WA_FINAL-LABST - WA_FINAL-MINBE.
+
+    " VALUE = M * P  (order value = min.order qty * std.price)
+    IF WA_FINAL-BSTMI > 0 AND WA_FINAL-STPRS > 0.
+      WA_FINAL-VALUE = WA_FINAL-BSTMI * WA_FINAL-STPRS.
+    ENDIF.
+
+    " Append to IT_FINAL based on radio button selection
+    IF R1 = 'X'.
+      " All Materials
+      APPEND WA_FINAL TO IT_FINAL.
+    ELSEIF R2 = 'X'.
+      " Only materials where stock (A) < re-order level (B)
+      IF WA_FINAL-LABST < WA_FINAL-MINBE.
+        APPEND WA_FINAL TO IT_FINAL.
+      ENDIF.
+    ENDIF.
+
+  ENDLOOP.
+
+  IF IT_FINAL IS INITIAL.
+    MESSAGE 'No records found matching the selected criteria.' TYPE 'I'.
+  ENDIF.
+
+ENDFORM.
+
+*& FORM: BUILD_FCAT
+
+FORM BUILD_FCAT.
+* Field catalog is built inline in DISPLAY_ALV using the DEFINE macro.
+ENDFORM.
+
+*& FORM: DISPLAY_ALV
+
+FORM DISPLAY_ALV.
+
+  DATA: LT_FIELDCAT TYPE SLIS_T_FIELDCAT_ALV,
+        LS_FIELDCAT TYPE SLIS_FIELDCAT_ALV,
+        LS_LAYOUT   TYPE SLIS_LAYOUT_ALV,
+        LV_REPID    TYPE SY-REPID.
+
+  LV_REPID = SY-REPID.
+
+  CLEAR LT_FIELDCAT.
+
+  " Macro to add field catalog entries
+  DEFINE ADD_COL.
+    CLEAR LS_FIELDCAT.
+    LS_FIELDCAT-COL_POS   = &1.
+    LS_FIELDCAT-FIELDNAME = &2.
+    LS_FIELDCAT-SELTEXT_L = &3.
+    LS_FIELDCAT-OUTPUTLEN = &4.
+    LS_FIELDCAT-KEY       = &5.
+    APPEND LS_FIELDCAT TO LT_FIELDCAT.
+  END-OF-DEFINITION.
+
+  "  Col  Fieldname    Column Header              Len  Key
+  ADD_COL  1  'MATNR'  'Material No.'              18  'X'.
+  ADD_COL  2  'MAKTX'  'Description'               40  ''.
+  ADD_COL  3  'MTART'  'Material Type'              8  ''.
+  ADD_COL  4  'MATKL'  'Material Group'             9  ''.
+  ADD_COL  5  'MEINS'  'Base UoM'                   6  ''.
+  ADD_COL  6  'WERKS'  'Plant'                      6  'X'.
+  ADD_COL  7  'EKGRP'  'Purch. Group'               3  ''.
+  ADD_COL  8  'MINBE'  'Re-Order Level (B)'        15  ''.
+  ADD_COL  9  'BSTMI'  'Min. Order Qty (M)'        15  ''.
+  ADD_COL 10  'LGORT'  'Storage Loc.'               4  ''.
+  ADD_COL 11  'LABST'  'Actual Stock (A)'          15  ''.
+  ADD_COL 12  'BWKEY'  'Valuation Area'             4  ''.
+  ADD_COL 13  'BWTAR'  'Valuation Type'             4  ''.
+  ADD_COL 14  'STPRS'  'Std. Price (P)'            15  ''.
+  ADD_COL 15  'SHORT'  'Shortage (A-B)'            15  ''.
+  ADD_COL 16  'VALUE'  'Order Value (M*P)'         18  ''.
+
+  " Right-align and sum numeric columns
+  LOOP AT LT_FIELDCAT INTO LS_FIELDCAT
+    WHERE FIELDNAME = 'MINBE'
+       OR FIELDNAME = 'BSTMI'
+       OR FIELDNAME = 'LABST'
+       OR FIELDNAME = 'STPRS'
+       OR FIELDNAME = 'SHORT'
+       OR FIELDNAME = 'VALUE'.
+    LS_FIELDCAT-JUST   = 'R'.
+    LS_FIELDCAT-DO_SUM = 'X'.
+    MODIFY LT_FIELDCAT FROM LS_FIELDCAT.
+  ENDLOOP.
+
+  " Layout settings
+  LS_LAYOUT-ZEBRA             = 'X'.   " Alternating row colors
+  LS_LAYOUT-COLWIDTH_OPTIMIZE = 'X'.   " Auto column width
+  LS_LAYOUT-NO_INPUT          = 'X'.   " Read-only display
+
+  " Display ALV Grid
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      I_CALLBACK_PROGRAM = LV_REPID
+      IS_LAYOUT          = LS_LAYOUT
+      IT_FIELDCAT        = LT_FIELDCAT
+      I_SAVE             = 'A'
+      I_GRID_TITLE       = 'Material Re-Order Level Report'
+    TABLES
+      T_OUTTAB           = IT_FINAL
+    EXCEPTIONS
+      PROGRAM_ERROR      = 1
+      OTHERS             = 2.
+
+  IF SY-SUBRC <> 0.
+    MESSAGE 'Error occurred while displaying the ALV report.' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.

@@ -1,0 +1,140 @@
+ *&---------------------------------------------------------------------*
+*& Report ZOPEN_SQL_NEW_SYNTAX
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ZOPEN_SQL_NEW_SYNTAX.
+* Open SQL New Syntax Demo
+
+PARAMETERS: p_mtart TYPE mara-mtart DEFAULT 'FERT'.
+
+"1. SELECT SINGLE with Inline DATA
+SELECT SINGLE matnr, mtart, meins
+  FROM mara
+  WHERE mtart = @p_mtart
+  INTO @DATA(ls_material).
+
+IF sy-subrc = 0.
+  WRITE: / 'First Material:',
+           ls_material-matnr,
+           ls_material-mtart,
+           ls_material-meins.
+ENDIF.
+
+ULINE.
+* 2. SELECT INTO INTERNAL TABLE
+SELECT matnr,
+       mtart,
+       meins,
+       ersda
+  FROM mara
+  WHERE mtart = @p_mtart
+  ORDER BY matnr
+  INTO TABLE @DATA(lt_mara)
+  UP TO 10 ROWS.
+
+WRITE: / 'Material List'.
+
+LOOP AT lt_mara INTO DATA(ls_mara).
+  WRITE: / ls_mara-matnr,
+           ls_mara-mtart,
+           ls_mara-meins,
+           ls_mara-ersda.
+ENDLOOP.
+
+ULINE.
+* 3. INNER JOIN
+SELECT a~matnr,
+       b~werks,
+       b~lgpro
+  FROM mara AS a
+  INNER JOIN marc AS b
+    ON a~matnr = b~matnr
+  WHERE a~mtart = @p_mtart
+  INTO TABLE @DATA(lt_join)
+  UP TO 10 ROWS.
+
+WRITE: / 'JOIN Output'.
+
+LOOP AT lt_join INTO DATA(ls_join).
+  WRITE: / ls_join-matnr,
+           ls_join-werks,
+           ls_join-lgpro.
+ENDLOOP.
+
+ULINE.
+* 4. Aggregate Function
+SELECT COUNT(*)
+  FROM mara
+  WHERE mtart = @p_mtart
+  INTO @DATA(lv_count).
+
+WRITE: / 'Total Materials =', lv_count.
+
+ULINE.
+* 5. GROUP BY
+SELECT mtart,
+       COUNT(*) AS total
+  FROM mara
+  GROUP BY mtart
+  INTO TABLE @DATA(lt_group).
+
+WRITE: / 'Material Type Count'.
+
+LOOP AT lt_group INTO DATA(ls_group).
+  WRITE: / ls_group-mtart,
+           ls_group-total.
+ENDLOOP.
+
+ULINE.
+* 6. CASE Expression
+SELECT matnr,
+       mtart,
+       CASE mtart
+         WHEN 'FERT' THEN 'Finished Product'
+         WHEN 'ROH'  THEN 'Raw Material'
+         ELSE 'Others'
+       END AS description
+  FROM mara
+  INTO TABLE @DATA(lt_case)
+  UP TO 10 ROWS.
+
+WRITE: / 'CASE Example'.
+
+LOOP AT lt_case INTO DATA(ls_case).
+  WRITE: / ls_case-matnr,
+           ls_case-mtart,
+           ls_case-description.
+ENDLOOP.
+
+ULINE.
+* 7. IN Operator
+SELECT matnr,
+       mtart
+  FROM mara
+  WHERE mtart IN ('FERT','ROH')
+  INTO TABLE @DATA(lt_in)
+  UP TO 10 ROWS.
+
+WRITE: / 'IN Operator'.
+
+LOOP AT lt_in INTO DATA(ls_in).
+  WRITE: / ls_in-matnr,
+           ls_in-mtart.
+ENDLOOP.
+
+ULINE.
+* 8. LIKE Operator
+SELECT matnr,
+       ersda
+  FROM mara
+  WHERE matnr LIKE '000000%'
+  INTO TABLE @DATA(lt_like)
+  UP TO 10 ROWS.
+
+WRITE: / 'LIKE Operator'.
+
+LOOP AT lt_like INTO DATA(ls_like).
+  WRITE: / ls_like-matnr,
+           ls_like-ersda.
+ENDLOOP.

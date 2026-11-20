@@ -1,0 +1,275 @@
+REPORT Z_BDC_UPLOAD_CUSTOMER_PROJ.
+*----------------------------------------------------------------*
+* Types
+*----------------------------------------------------------------*
+TYPES: BEGIN OF ty_upload,
+         vbeln TYPE vbak-vbeln,
+         bstkd TYPE vbkd-bstkd,
+         bstdk TYPE vbkd-bstdk,
+         zterm TYPE vbkd-zterm,
+       END OF ty_upload.
+
+TYPES: BEGIN OF ty_result,
+         vbeln  TYPE vbak-vbeln,
+         bstkd  TYPE vbkd-bstkd,
+         bstdk  TYPE vbkd-bstdk,
+         zterm  TYPE vbkd-zterm,
+         status TYPE char10,
+         msg    TYPE string,
+       END OF ty_result.
+
+*----------------------------------------------------------------*
+* Data
+*----------------------------------------------------------------*
+DATA: it_upload  TYPE STANDARD TABLE OF ty_upload,
+      wa_upload  TYPE ty_upload,
+      it_raw     TYPE STANDARD TABLE OF alsmex_tabline,
+      wa_raw     TYPE alsmex_tabline,
+      it_bdcdata TYPE STANDARD TABLE OF bdcdata,
+      wa_bdcdata TYPE bdcdata,
+      it_messtab TYPE STANDARD TABLE OF bdcmsgcoll,
+      wa_messtab TYPE bdcmsgcoll,
+      it_result  TYPE STANDARD TABLE OF ty_result,
+      wa_result  TYPE ty_result,
+      lv_msg     TYPE string,
+      lv_date_c  TYPE char10,
+      lv_vbeln_alpha TYPE vbak-vbeln.
+
+*----------------------------------------------------------------*
+* Selection Screen
+*----------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETERS: p_file TYPE rlgrap-filename OBLIGATORY,
+            p_mode TYPE ctu_params-dismode DEFAULT 'N'.  " A=Show all, E=Errors only, N=No display
+SELECTION-SCREEN END OF BLOCK b1.
+
+*----------------------------------------------------------------*
+* Value request for file (local presentation server)
+*----------------------------------------------------------------*
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+  CALL FUNCTION 'F4_FILENAME'
+    EXPORTING
+      field_name = 'P_FILE'
+    IMPORTING
+      file_name  = p_file.
+
+*----------------------------------------------------------------*
+* Main
+*----------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM upload_excel.
+  PERFORM process_bdc.
+  PERFORM display_result.
+
+*&---------------------------------------------------------------*
+*&      Form  UPLOAD_EXCEL
+*&---------------------------------------------------------------*
+FORM upload_excel.
+
+  CALL FUNCTION 'ALSM_EXCEL_TO_INTERNAL_TABLE'
+    EXPORTING
+      filename                = p_file
+      i_begin_col             = 1
+      i_begin_row             = 2      " row 1 = header, data starts row 2
+      i_end_col               = 4
+      i_end_row               = 65000
+    TABLES
+      intern                  = it_raw
+    EXCEPTIONS
+      inconsistent_parameters = 1
+      upload_ole              = 2
+      OTHERS                  = 3.
+
+  IF sy-subrc <> 0.
+    MESSAGE 'Error uploading Excel file - check path/format' TYPE 'E'.
+  ENDIF.
+
+  SORT it_raw BY row col.
+
+  LOOP AT it_raw INTO wa_raw.
+    CASE wa_raw-col.
+      WHEN 1.
+        " Pad Sales Order to 10 digits (VBAK-VBELN is NUMC10) so the
+        " lookup and BDC entry always match what's stored in the table.
+        CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+          EXPORTING
+            input  = wa_raw-value
+          IMPORTING
+            output = wa_upload-vbeln.
+
+      WHEN 2.
+        wa_upload-bstkd = wa_raw-value.
+
+      WHEN 3.
+        " Robust date parsing: accepts DD.MM.YYYY or DD-MM-YYYY text.
+        lv_date_c = wa_raw-value.
+        REPLACE ALL OCCURRENCES OF '-' IN lv_date_c WITH '.'.
+        REPLACE ALL OCCURRENCES OF '/' IN lv_date_c WITH '.'.
+        CONDENSE lv_date_c NO-GAPS.
+
+        CALL FUNCTION 'CONVERT_DATE_TO_INTERNAL'
+          EXPORTING
+            date_external             = lv_date_c
+          IMPORTING
+            date_internal             = wa_upload-bstdk
+          EXCEPTIONS
+            date_external_is_invalid  = 1
+            OTHERS                    = 2.
+
+        IF sy-subrc <> 0.
+          " Fallback: if Excel passed a numeric serial date (e.g. 45678),
+          " convert it via the spreadsheet epoch (1899-12-30).
+          IF wa_raw-value CO '0123456789'.
+            wa_upload-bstdk = '18991230' + wa_raw-value.
+          ELSE.
+            CLEAR wa_upload-bstdk.
+          ENDIF.
+        ENDIF.
+
+      WHEN 4.
+        wa_upload-zterm = wa_raw-value.
+    ENDCASE.
+
+    AT END OF row.
+      APPEND wa_upload TO it_upload.
+      CLEAR wa_upload.
+    ENDAT.
+  ENDLOOP.
+
+ENDFORM.                    " UPLOAD_EXCEL
+
+*&---------------------------------------------------------------*
+*&      Form  PROCESS_BDC
+*&---------------------------------------------------------------*
+FORM process_bdc.
+
+  LOOP AT it_upload INTO wa_upload.
+
+    CLEAR: wa_result, lv_msg.
+    MOVE-CORRESPONDING wa_upload TO wa_result.
+
+    " 1) Validate sales order exists before attempting BDC
+    SELECT SINGLE vbeln FROM vbak
+      INTO @DATA(lv_vbeln_chk)
+      WHERE vbeln = @wa_upload-vbeln.
+
+    IF sy-subrc <> 0.
+      wa_result-status = 'INVALID'.
+      wa_result-msg    = 'Sales order does not exist in VBAK'.
+      APPEND wa_result TO it_result.
+      CONTINUE.
+    ENDIF.
+
+    " 2) Build BDC data - VERIFY dynpro/field names against your SHDB recording
+    REFRESH it_bdcdata.
+
+    " --- Initial screen: enter sales order & go to change mode ---
+    PERFORM bdc_dynpro USING 'SAPMV45A' '0102'.
+    PERFORM bdc_field  USING 'BDC_CURSOR' 'VBAK-VBELN'.
+    PERFORM bdc_field  USING 'BDC_OKCODE' '/00'.
+    PERFORM bdc_field  USING 'VBAK-VBELN' wa_upload-vbeln.
+
+    " --- Overview screen: navigate to Billing Document / Sales tab ---
+    PERFORM bdc_dynpro USING 'SAPMV45A' '4001'.
+    PERFORM bdc_field  USING 'BDC_OKCODE' '=VBKD'.   " verify OK-code from your recording
+
+    " --- Billing Document tab screen: update customer PO fields ---
+    PERFORM bdc_dynpro USING 'SAPMV45A' '4303'.
+    PERFORM bdc_field  USING 'BDC_CURSOR' 'VBKD-ZTERM'.
+    PERFORM bdc_field  USING 'BDC_OKCODE' '=SICH'.   " Save
+    PERFORM bdc_field  USING 'VBKD-BSTKD' wa_upload-bstkd.
+
+    IF wa_upload-bstdk IS NOT INITIAL.
+      DATA(lv_bstdk_ext) = |{ wa_upload-bstdk+6(2) }.{ wa_upload-bstdk+4(2) }.{ wa_upload-bstdk(4) }|.
+      PERFORM bdc_field USING 'VBKD-BSTDK' lv_bstdk_ext.
+    ENDIF.
+
+    IF wa_upload-zterm IS NOT INITIAL.
+      PERFORM bdc_field USING 'VBKD-ZTERM' wa_upload-zterm.
+    ENDIF.
+
+    " 3) Execute BDC via CALL TRANSACTION
+    REFRESH it_messtab.
+    CALL TRANSACTION 'VA02' USING it_bdcdata
+                             MODE   p_mode
+                             UPDATE 'S'
+                             MESSAGES INTO it_messtab.
+
+    " 4) Evaluate result
+    READ TABLE it_messtab INTO wa_messtab WITH KEY msgtyp = 'E'.
+    IF sy-subrc = 0.
+      CALL FUNCTION 'MESSAGE_TEXT_BUILD'
+        EXPORTING
+          msgid               = wa_messtab-msgid
+          msgnr               = wa_messtab-msgnr
+          msgv1               = wa_messtab-msgv1
+          msgv2               = wa_messtab-msgv2
+          msgv3               = wa_messtab-msgv3
+          msgv4               = wa_messtab-msgv4
+        IMPORTING
+          message_text_output = lv_msg.
+
+      wa_result-status = 'ERROR'.
+      wa_result-msg    = lv_msg.
+    ELSE.
+      wa_result-status = 'SUCCESS'.
+      wa_result-msg    = 'Sales order updated successfully'.
+    ENDIF.
+
+    APPEND wa_result TO it_result.
+
+  ENDLOOP.
+
+ENDFORM.                    " PROCESS_BDC
+
+*&---------------------------------------------------------------*
+*&      Form  BDC_DYNPRO
+*&---------------------------------------------------------------*
+FORM bdc_dynpro USING p_program p_dynpro.
+  CLEAR wa_bdcdata.
+  wa_bdcdata-program  = p_program.
+  wa_bdcdata-dynpro   = p_dynpro.
+  wa_bdcdata-dynbegin = 'X'.
+  APPEND wa_bdcdata TO it_bdcdata.
+ENDFORM.                    " BDC_DYNPRO
+
+*&---------------------------------------------------------------*
+*&      Form  BDC_FIELD
+*&---------------------------------------------------------------*
+FORM bdc_field USING p_fnam p_fval.
+  CLEAR wa_bdcdata.
+  wa_bdcdata-fnam = p_fnam.
+  wa_bdcdata-fval = p_fval.
+  APPEND wa_bdcdata TO it_bdcdata.
+ENDFORM.                    " BDC_FIELD
+
+*&---------------------------------------------------------------*
+*&      Form  DISPLAY_RESULT
+*&---------------------------------------------------------------*
+FORM display_result.
+
+  WRITE: / 'BDC UPLOAD RESULT - Customer PO Update via VA02'.
+  WRITE: / sy-uline(90).
+  WRITE: / 'Sales Order', 15 'Cust. PO No.', 30 'PO Date', 42 'Pmt Terms',
+           55 'Status', 66 'Message'.
+  WRITE: / sy-uline(90).
+
+  LOOP AT it_result INTO wa_result.
+    WRITE: / wa_result-vbeln, 15 wa_result-bstkd, 30 wa_result-bstdk,
+             42 wa_result-zterm, 55 wa_result-status, 66 wa_result-msg.
+  ENDLOOP.
+
+  WRITE: / sy-uline(90).
+
+  DATA(lv_success) = REDUCE i( INIT x = 0 FOR wa IN it_result
+                                WHERE ( status = 'SUCCESS' ) NEXT x = x + 1 ).
+  DATA(lv_error)   = REDUCE i( INIT x = 0 FOR wa IN it_result
+                                WHERE ( status = 'ERROR' ) NEXT x = x + 1 ).
+  DATA(lv_invalid) = REDUCE i( INIT x = 0 FOR wa IN it_result
+                                WHERE ( status = 'INVALID' ) NEXT x = x + 1 ).
+
+  WRITE: / 'Success:', lv_success,
+         / 'Error:', lv_error,
+         / 'Invalid (Sales Order not found):', lv_invalid.
+
+ENDFORM.                    " DISPLAY_RESULT

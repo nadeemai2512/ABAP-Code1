@@ -1,0 +1,170 @@
+REPORT Z_STRINGFUNCTION.
+
+* STRING LENGTH (STRLEN)
+DATA N TYPE I.
+DATA VTEXT TYPE STRING.
+
+VTEXT = 'My name is Mohammed Nadeem Abbas Isfahani'.
+
+N = STRLEN( VTEXT ).
+
+WRITE: / 'String:', VTEXT.
+WRITE: / 'Length of string =', N.
+
+WRITE: / '---------------------------------------'.
+
+* SPLIT STRING
+DATA: EMPDETAILS TYPE STRING VALUE '100,Nadeem,25000,Hyderabad,India'.
+
+DATA: ENO TYPE STRING,
+      ENAME TYPE STRING,
+      ESALARY TYPE STRING,
+      ECITY TYPE STRING,
+      ECOUNTRY TYPE STRING.
+
+SPLIT EMPDETAILS AT ',' INTO ENO ENAME ESALARY ECITY ECOUNTRY.
+
+WRITE: / 'Split Output:'.
+WRITE: / ENO, ENAME, ESALARY, ECITY, ECOUNTRY.
+
+WRITE: / '---------------------------------------'.
+
+* CONCATENATE STRING
+DATA: ENO1 TYPE STRING VALUE '101',
+      ENAME1 TYPE STRING VALUE 'Nadeem',
+      ECITY1 TYPE STRING VALUE 'Hyderabad',
+      ECOUNTRY1 TYPE STRING VALUE 'India'.
+
+DATA: RESULT TYPE STRING.
+
+CONCATENATE ENO1 ENAME1 ECITY1 ECOUNTRY1 INTO RESULT SEPARATED BY ','.
+
+WRITE: / 'Concatenate Output:'.
+WRITE: / RESULT.
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+REPORT Z_STRINGFUNCTION.
+
+*---------------------------------------
+* STRING LENGTH (STRLEN)
+*---------------------------------------
+DATA N TYPE I.
+DATA VTEXT TYPE STRING.
+
+VTEXT = 'My name is Mohammed Nadeem Abbas Isfahani'.
+
+N = STRLEN( VTEXT ).
+
+WRITE: / 'String:', VTEXT.
+WRITE: / 'Length of string =', N.
+
+ULINE.
+
+* Another STRLEN Example *
+DATA N1 TYPE I.
+DATA TEXT1 TYPE STRING VALUE 'Hyderabad is the capital of Telangana'.
+
+N1 = STRLEN( TEXT1 ).
+
+WRITE: / 'Length of TEXT1 is', N1.
+
+ULINE.
+
+* Another STRLEN Example *
+DATA N2 TYPE I.
+DATA TEXT2 TYPE STRING VALUE 'ROLLS ROYCE IS ONE OF THE EXPENSIVE CAR BRANDS'.
+
+N2 = STRLEN( TEXT2 ).
+
+WRITE: / 'Length of TEXT2 is', N2.
+
+ULINE.
+
+*---------------------------------------
+* SPLIT STRING
+*---------------------------------------
+DATA: EMPDETAILS TYPE STRING VALUE '100,Nadeem,25000,Hyderabad,India'.
+
+DATA: ENO TYPE STRING,
+      ENAME TYPE STRING,
+      ESALARY TYPE STRING,
+      ECITY TYPE STRING,
+      ECOUNTRY TYPE STRING.
+
+SPLIT EMPDETAILS AT ',' INTO ENO ENAME ESALARY ECITY ECOUNTRY.
+
+WRITE: / 'Split Output:'.
+WRITE: / 'ENO:', ENO,
+       / 'ENAME:', ENAME,
+       / 'SALARY:', ESALARY,
+       / 'CITY:', ECITY,
+       / 'COUNTRY:', ECOUNTRY.
+
+ULINE.
+
+* Another SPLIT Example (DOB, NAME, CITY, STATE, COUNTRY) *
+DATA: DETAILS TYPE STRING VALUE '24.09.2002,RAGHUVARDHAN,SIDDIPET,TELANGANA,INDIA'.
+
+DATA: DOB TYPE STRING,
+      NAME TYPE STRING,
+      CITY TYPE STRING,
+      STATE TYPE STRING,
+      COUNTRY TYPE STRING.
+
+SPLIT DETAILS AT ',' INTO DOB NAME CITY STATE COUNTRY.
+
+WRITE: / 'DOB:', DOB,
+       / 'NAME:', NAME,
+       / 'CITY:', CITY,
+       / 'STATE:', STATE,
+       / 'COUNTRY:', COUNTRY.
+
+ULINE.
+
+* Another SPLIT Example (Time, Name, Weight, Height) *
+DATA: DETAILS2 TYPE STRING VALUE '03:49:10,RAJA,72,180'.
+
+DATA: TIME TYPE STRING,
+      NAME2 TYPE STRING,
+      WEIGHT TYPE STRING,
+      HEIGHT TYPE STRING.
+
+SPLIT DETAILS2 AT ',' INTO TIME NAME2 WEIGHT HEIGHT.
+
+WRITE: / 'TIME:', TIME,
+       / 'NAME:', NAME2,
+       / 'WEIGHT:', WEIGHT,
+       / 'HEIGHT:', HEIGHT.
+
+ULINE.
+
+*---------------------------------------
+* CONCATENATE STRING
+*---------------------------------------
+DATA: ENO1 TYPE STRING VALUE '101',
+      ENAME1 TYPE STRING VALUE 'Nadeem',
+      ECITY1 TYPE STRING VALUE 'Hyderabad',
+      ECOUNTRY1 TYPE STRING VALUE 'India'.
+
+DATA: RESULT TYPE STRING.
+
+CONCATENATE ENO1 ENAME1 ECITY1 ECOUNTRY1 INTO RESULT SEPARATED BY ','.
+
+WRITE: / 'Concatenate Output:'.
+WRITE: / RESULT.
+
+ULINE.
+
+* Another CONCATENATE Example (Space separated) *
+DATA: S1 TYPE STRING,
+      ROLL TYPE STRING VALUE '1001',
+      SNAME TYPE STRING VALUE 'RAMA',
+      PLACE TYPE STRING VALUE 'SIDDIPET'.
+
+CONCATENATE ROLL SNAME PLACE INTO S1 SEPARATED BY SPACE.
+
+WRITE: / 'Concatenate with Space:'.
+WRITE: / S1.
+
+ULINE.

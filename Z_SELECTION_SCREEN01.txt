@@ -1,0 +1,99 @@
+REPORT Z_SELECTION_SCREEN01.
+
+*---------------------------------------------------------------------*
+* PARAMETERS
+*---------------------------------------------------------------------*
+PARAMETERS:
+  empno TYPE i,
+  empnm TYPE char30,
+  empsal TYPE p DECIMALS 2,
+  empage TYPE i,
+  empcity TYPE char20.
+
+*---------------------------------------------------------------------*
+* SELECT-OPTIONS
+*---------------------------------------------------------------------*
+SELECT-OPTIONS:
+  s_dept FOR empcity.
+
+*---------------------------------------------------------------------*
+* CHECKBOX
+*---------------------------------------------------------------------*
+PARAMETERS:
+  empact AS CHECKBOX.
+
+*---------------------------------------------------------------------*
+* RADIO BUTTONS
+*---------------------------------------------------------------------*
+PARAMETERS:
+  male   RADIOBUTTON GROUP r1 DEFAULT 'X',
+  female RADIOBUTTON GROUP r1.
+
+*---------------------------------------------------------------------*
+* START-OF-SELECTION
+*---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+FORMAT COLOR 5 INTENSIFIED ON.
+WRITE: / '============= EMPLOYEE DETAILS ============='.
+FORMAT RESET.
+
+ULINE.
+
+FORMAT COLOR 3 INTENSIFIED ON.
+
+WRITE: / 'Employee Number  :', empno.
+WRITE: / 'Employee Name    :', empnm.
+WRITE: / 'Employee Salary  :', empsal.
+WRITE: / 'Employee Age     :', empage.
+WRITE: / 'Employee City    :', empcity.
+
+FORMAT RESET.
+
+ULINE.
+
+FORMAT COLOR 6 INTENSIFIED ON.
+WRITE: / 'Selected Departments'.
+FORMAT RESET.
+
+LOOP AT s_dept.
+  WRITE: / s_dept-low.
+ENDLOOP.
+
+ULINE.
+
+IF empact = 'X'.
+
+  FORMAT COLOR 2 INTENSIFIED ON.
+  WRITE: / 'Employee Status  : Active'.
+  FORMAT RESET.
+
+ELSE.
+
+  FORMAT COLOR 6 INTENSIFIED ON.
+  WRITE: / 'Employee Status  : Inactive'.
+  FORMAT RESET.
+
+ENDIF.
+
+ULINE.
+
+IF male = 'X'.
+
+  FORMAT COLOR 4 INTENSIFIED ON.
+  WRITE: / 'Gender           : Male'.
+  FORMAT RESET.
+
+ELSEIF female = 'X'.
+
+  FORMAT COLOR 4 INTENSIFIED ON.
+  WRITE: / 'Gender           : Female'.
+  FORMAT RESET.
+
+ENDIF.
+
+ULINE.
+
+FORMAT COLOR 1 INTENSIFIED ON.
+WRITE: / '============= END OF REPORT ============='.
+FORMAT RESET.

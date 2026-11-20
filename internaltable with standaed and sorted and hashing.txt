@@ -1,0 +1,135 @@
+REPORT Z_INTERNALTABLE_STANDARD_ORTED.
+
+* TYPE DECLARATION
+
+TYPES: BEGIN OF ty_employee,
+         emp_id   TYPE numc3,
+         emp_name TYPE char20,
+         emp_sal  TYPE i,
+       END OF ty_employee.
+
+* TABLE DECLARATIONS
+DATA: gt_standard TYPE STANDARD TABLE OF ty_employee,
+      gt_sorted   TYPE SORTED TABLE OF ty_employee WITH UNIQUE KEY emp_id,
+      gt_hashed   TYPE HASHED TABLE OF ty_employee WITH UNIQUE KEY emp_id.
+
+DATA: gs_emp TYPE ty_employee.
+DATA: lv_lines TYPE i.
+
+* 1. STANDARD TABLE (Allows duplicates, index access)
+WRITE: / '========== STANDARD TABLE =========='.
+
+gs_emp-emp_id = 101. gs_emp-emp_name = 'Amit'. gs_emp-emp_sal = 50000. APPEND gs_emp TO gt_standard.
+gs_emp-emp_id = 102. gs_emp-emp_name = 'Priya'. gs_emp-emp_sal = 45000. APPEND gs_emp TO gt_standard.
+gs_emp-emp_id = 103. gs_emp-emp_name = 'Rajesh'. gs_emp-emp_sal = 55000. APPEND gs_emp TO gt_standard.
+gs_emp-emp_id = 101. gs_emp-emp_name = 'Duplicate'. gs_emp-emp_sal = 48000. APPEND gs_emp TO gt_standard. " Duplicate allowed
+
+LOOP AT gt_standard INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id, gs_emp-emp_name, gs_emp-emp_sal.
+ENDLOOP.
+
+* Operations on STANDARD table
+INSERT VALUE #( emp_id = 104 emp_name = 'Inserted' emp_sal = 42000 ) INTO gt_standard INDEX 3.
+WRITE: / 'After INSERT at index 3:'.
+LOOP AT gt_standard INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id, gs_emp-emp_name, gs_emp-emp_sal.
+ENDLOOP.
+
+MODIFY gt_standard FROM VALUE #( emp_id = 999 emp_name = 'Modified' emp_sal = 99999 ) INDEX 2.
+WRITE: / 'After MODIFY at index 2:'.
+LOOP AT gt_standard INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id, gs_emp-emp_name, gs_emp-emp_sal.
+ENDLOOP.
+
+READ TABLE gt_standard INTO gs_emp INDEX 2.
+WRITE: / 'READ at index 2:', gs_emp-emp_id, gs_emp-emp_name.
+
+DELETE gt_standard INDEX 4.
+WRITE: / 'After DELETE at index 4:'.
+LOOP AT gt_standard INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id.
+ENDLOOP.
+ULINE.
+
+* 2. SORTED TABLE (Auto-sorted, no duplicates)
+WRITE: / '========== SORTED TABLE =========='.
+
+INSERT VALUE #( emp_id = 103 emp_name = 'Rajesh' emp_sal = 55000 ) INTO TABLE gt_sorted.
+INSERT VALUE #( emp_id = 101 emp_name = 'Amit' emp_sal = 50000 ) INTO TABLE gt_sorted.
+INSERT VALUE #( emp_id = 105 emp_name = 'Vikram' emp_sal = 52000 ) INTO TABLE gt_sorted.
+INSERT VALUE #( emp_id = 102 emp_name = 'Priya' emp_sal = 45000 ) INTO TABLE gt_sorted.
+INSERT VALUE #( emp_id = 104 emp_name = 'Sneha' emp_sal = 48000 ) INTO TABLE gt_sorted.
+
+* Try duplicate (will fail)
+INSERT VALUE #( emp_id = 101 emp_name = 'Duplicate' emp_sal = 60000 ) INTO TABLE gt_sorted.
+IF sy-subrc <> 0.
+  WRITE: / 'Duplicate ID 101 - INSERT failed (sy-subrc =', sy-subrc, ')'.
+ENDIF.
+
+WRITE: / 'SORTED TABLE (automatically sorted by EMP_ID):'.
+LOOP AT gt_sorted INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id, gs_emp-emp_name, gs_emp-emp_sal.
+ENDLOOP.
+
+* Read with binary search (automatic)
+READ TABLE gt_sorted INTO gs_emp WITH KEY emp_id = 103.
+WRITE: / 'READ with KEY emp_id=103:', gs_emp-emp_id, gs_emp-emp_name.
+
+* Modify
+gs_emp-emp_id = 104.
+gs_emp-emp_name = 'Sneha Modified'.
+gs_emp-emp_sal = 52000.
+MODIFY TABLE gt_sorted FROM gs_emp.
+WRITE: / 'After MODIFY (ID 104 name changed):'.
+LOOP AT gt_sorted INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id, gs_emp-emp_name.
+ENDLOOP.
+
+* Delete
+DELETE TABLE gt_sorted WITH TABLE KEY emp_id = 102.
+WRITE: / 'After DELETE (ID 102 removed):'.
+LOOP AT gt_sorted INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id, gs_emp-emp_name.
+ENDLOOP.
+ULINE.
+
+* 3. HASHED TABLE (Hash-based, fastest access)
+WRITE: / '========== HASHED TABLE =========='.
+
+INSERT VALUE #( emp_id = 201 emp_name = 'Rahul' emp_sal = 47000 ) INTO TABLE gt_hashed.
+INSERT VALUE #( emp_id = 203 emp_name = 'Sanjay' emp_sal = 49000 ) INTO TABLE gt_hashed.
+INSERT VALUE #( emp_id = 202 emp_name = 'Neha' emp_sal = 53000 ) INTO TABLE gt_hashed.
+INSERT VALUE #( emp_id = 204 emp_name = 'Deepa' emp_sal = 51000 ) INTO TABLE gt_hashed.
+
+* Try duplicate (will fail)
+INSERT VALUE #( emp_id = 201 emp_name = 'Duplicate' emp_sal = 60000 ) INTO TABLE gt_hashed.
+IF sy-subrc <> 0.
+  WRITE: / 'Duplicate ID 201 - INSERT failed (sy-subrc =', sy-subrc, ')'.
+ENDIF.
+
+WRITE: / 'HASHED TABLE (order not guaranteed):'.
+LOOP AT gt_hashed INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id, gs_emp-emp_name, gs_emp-emp_sal.
+ENDLOOP.
+
+* Fastest read (hash-based)
+READ TABLE gt_hashed INTO gs_emp WITH TABLE KEY emp_id = 203.
+WRITE: / 'READ with TABLE KEY emp_id=203:', gs_emp-emp_id, gs_emp-emp_name.
+
+* Modify
+gs_emp-emp_id = 202.
+gs_emp-emp_name = 'Neha Modified'.
+gs_emp-emp_sal = 58000.
+MODIFY TABLE gt_hashed FROM gs_emp.
+WRITE: / 'After MODIFY (ID 202 salary increased):'.
+LOOP AT gt_hashed INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id, gs_emp-emp_name, gs_emp-emp_sal.
+ENDLOOP.
+
+* Delete
+DELETE TABLE gt_hashed WITH TABLE KEY emp_id = 201.
+WRITE: / 'After DELETE (ID 201 removed):'.
+LOOP AT gt_hashed INTO gs_emp.
+  WRITE: / sy-tabix, gs_emp-emp_id, gs_emp-emp_name.
+ENDLOOP.
+ULINE.

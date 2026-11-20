@@ -1,0 +1,303 @@
+REPORT Z_ALVREPORT_LOGO.
+
+TYPE-POOLS: SLIS.
+
+TABLES: MARA,
+        MARC,
+        SSCRFIELDS.
+
+*---------------------------------------------------------------------*
+* VARIABLES
+*---------------------------------------------------------------------*
+DATA: F_MATNR TYPE MATNR.
+
+*---------------------------------------------------------------------*
+* SELECT-OPTIONS
+*---------------------------------------------------------------------*
+SELECT-OPTIONS: S_MATNR FOR F_MATNR.
+
+*---------------------------------------------------------------------*
+* PUSH BUTTONS
+*---------------------------------------------------------------------*
+SELECTION-SCREEN SKIP 2.
+
+SELECTION-SCREEN PUSHBUTTON 50(10) BUTTON1 USER-COMMAND FT1.
+SELECTION-SCREEN PUSHBUTTON 62(10) BUTTON2 USER-COMMAND FT2.
+
+*---------------------------------------------------------------------*
+* TYPE DECLARATION
+*---------------------------------------------------------------------*
+TYPES: BEGIN OF TY_MAT,
+
+         MATNR TYPE MARA-MATNR,
+         ERNAM TYPE MARA-ERNAM,
+         MTART TYPE MARA-MTART,
+         MBRSH TYPE MARA-MBRSH,
+         WERKS TYPE MARC-WERKS,
+         EKGRP TYPE MARC-EKGRP,
+         BSTMI TYPE MARC-BSTMI,
+
+       END OF TY_MAT.
+
+*---------------------------------------------------------------------*
+* INTERNAL TABLES
+*---------------------------------------------------------------------*
+DATA: IT_MAT TYPE TABLE OF TY_MAT,
+      WA_MAT TYPE TY_MAT.
+
+*---------------------------------------------------------------------*
+* FIELD CATALOG
+*---------------------------------------------------------------------*
+DATA: IT_FCAT TYPE SLIS_T_FIELDCAT_ALV,
+      WA_FCAT TYPE SLIS_FIELDCAT_ALV.
+
+*---------------------------------------------------------------------*
+* LAYOUT
+*---------------------------------------------------------------------*
+DATA: WA_LAYOUT TYPE SLIS_LAYOUT_ALV.
+
+*---------------------------------------------------------------------*
+* INITIALIZATION
+*---------------------------------------------------------------------*
+INITIALIZATION.
+
+  BUTTON1 = 'EXECUTE'.
+  BUTTON2 = 'EXIT'.
+
+*---------------------------------------------------------------------*
+* SELECTION SCREEN VALIDATION
+*---------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+
+  IF SSCRFIELDS-UCOMM = 'FT2'.
+
+    LEAVE PROGRAM.
+
+  ELSEIF SSCRFIELDS-UCOMM = 'FT1'.
+
+    SSCRFIELDS-UCOMM = 'ONLI'.
+
+  ENDIF.
+
+*---------------------------------------------------------------------*
+* START-OF-SELECTION
+*---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  PERFORM FETCH_DATA.
+  PERFORM BUILD_FCAT.
+  PERFORM DISPLAY_ALV.
+
+*---------------------------------------------------------------------*
+* FETCH DATA
+*---------------------------------------------------------------------*
+FORM FETCH_DATA.
+
+  SELECT A~MATNR
+         A~ERNAM
+         A~MTART
+         A~MBRSH
+         B~WERKS
+         B~EKGRP
+         B~BSTMI
+
+    INTO TABLE IT_MAT
+
+    FROM MARA AS A
+
+    INNER JOIN MARC AS B
+    ON A~MATNR = B~MATNR
+
+    WHERE A~MATNR IN S_MATNR.
+
+  IF SY-SUBRC <> 0.
+
+    MESSAGE 'NO DATA FOUND' TYPE 'I'.
+
+    STOP.
+
+  ENDIF.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* BUILD FIELD CATALOG
+*---------------------------------------------------------------------*
+FORM BUILD_FCAT.
+
+* MATERIAL NUMBER
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 1.
+  WA_FCAT-FIELDNAME = 'MATNR'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-KEY       = 'X'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-NO_ZERO   = SPACE.
+  WA_FCAT-SELTEXT_S = 'MATNR'.
+  WA_FCAT-SELTEXT_M = 'MAT NUMBER'.
+  WA_FCAT-SELTEXT_L = 'MATERIAL NUMBER'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* CREATED BY
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 2.
+  WA_FCAT-FIELDNAME = 'ERNAM'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_S = 'USER'.
+  WA_FCAT-SELTEXT_M = 'CREATED BY'.
+  WA_FCAT-SELTEXT_L = 'CREATED BY USER'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* MATERIAL TYPE
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 3.
+  WA_FCAT-FIELDNAME = 'MTART'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_S = 'TYPE'.
+  WA_FCAT-SELTEXT_M = 'MAT TYPE'.
+  WA_FCAT-SELTEXT_L = 'MATERIAL TYPE'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* INDUSTRY SECTOR
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 4.
+  WA_FCAT-FIELDNAME = 'MBRSH'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_S = 'IND'.
+  WA_FCAT-SELTEXT_M = 'IND SECTOR'.
+  WA_FCAT-SELTEXT_L = 'INDUSTRY SECTOR'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* PLANT
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 5.
+  WA_FCAT-FIELDNAME = 'WERKS'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_S = 'PLANT'.
+  WA_FCAT-SELTEXT_M = 'PLANT'.
+  WA_FCAT-SELTEXT_L = 'PLANT CODE'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* PURCHASING GROUP
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 6.
+  WA_FCAT-FIELDNAME = 'EKGRP'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_S = 'PGRP'.
+  WA_FCAT-SELTEXT_M = 'PUR GROUP'.
+  WA_FCAT-SELTEXT_L = 'PURCHASING GROUP'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+* MINIMUM LOT SIZE
+  CLEAR WA_FCAT.
+  WA_FCAT-COL_POS   = 7.
+  WA_FCAT-FIELDNAME = 'BSTMI'.
+  WA_FCAT-TABNAME   = 'IT_MAT'.
+  WA_FCAT-JUST      = 'C'.
+  WA_FCAT-SELTEXT_S = 'LOT'.
+  WA_FCAT-SELTEXT_M = 'MIN LOT'.
+  WA_FCAT-SELTEXT_L = 'MINIMUM LOT SIZE'.
+  APPEND WA_FCAT TO IT_FCAT.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* DISPLAY ALV
+*---------------------------------------------------------------------*
+FORM DISPLAY_ALV.
+
+  WA_LAYOUT-ZEBRA = 'X'.
+  WA_LAYOUT-COLWIDTH_OPTIMIZE = 'X'.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+
+    EXPORTING
+      I_CALLBACK_PROGRAM     = SY-REPID
+      I_CALLBACK_TOP_OF_PAGE = 'TOP_OF_PAGE'
+      IS_LAYOUT              = WA_LAYOUT
+      IT_FIELDCAT            = IT_FCAT
+      I_GRID_TITLE           = 'MATERIAL MASTER DATA'
+
+    TABLES
+      T_OUTTAB               = IT_MAT
+
+    EXCEPTIONS
+      PROGRAM_ERROR          = 1
+      OTHERS                 = 2.
+
+  IF SY-SUBRC <> 0.
+
+    MESSAGE 'ERROR IN ALV DISPLAY' TYPE 'E'.
+
+  ENDIF.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* TOP OF PAGE
+*---------------------------------------------------------------------*
+FORM TOP_OF_PAGE.
+
+  DATA: IT_HEADER TYPE SLIS_T_LISTHEADER,
+        WA_HEADER TYPE SLIS_LISTHEADER.
+
+* HEADING
+  CLEAR WA_HEADER.
+  WA_HEADER-TYP  = 'H'.
+  WA_HEADER-INFO = 'MATERIAL MASTER REPORT'.
+  APPEND WA_HEADER TO IT_HEADER.
+
+* DATE
+  CLEAR WA_HEADER.
+  WA_HEADER-TYP  = 'S'.
+  WA_HEADER-KEY  = 'DATE : '.
+  WA_HEADER-INFO = SY-DATUM.
+  APPEND WA_HEADER TO IT_HEADER.
+
+* TIME
+  CLEAR WA_HEADER.
+  WA_HEADER-TYP  = 'S'.
+  WA_HEADER-KEY  = 'TIME : '.
+  WA_HEADER-INFO = SY-UZEIT.
+  APPEND WA_HEADER TO IT_HEADER.
+
+* USER
+  CLEAR WA_HEADER.
+  WA_HEADER-TYP  = 'S'.
+  WA_HEADER-KEY  = 'USER : '.
+  WA_HEADER-INFO = SY-UNAME.
+  APPEND WA_HEADER TO IT_HEADER.
+
+* CLIENT
+  CLEAR WA_HEADER.
+  WA_HEADER-TYP  = 'S'.
+  WA_HEADER-KEY  = 'CLIENT : '.
+  WA_HEADER-INFO = SY-MANDT.
+  APPEND WA_HEADER TO IT_HEADER.
+
+* TOTAL RECORDS
+  DATA: LV_LINES TYPE I.
+
+  DESCRIBE TABLE IT_MAT LINES LV_LINES.
+
+  CLEAR WA_HEADER.
+  WA_HEADER-TYP  = 'S'.
+  WA_HEADER-KEY  = 'TOTAL RECORDS : '.
+  WA_HEADER-INFO = LV_LINES.
+  APPEND WA_HEADER TO IT_HEADER.
+
+*---------------------------------------------------------------------*
+* DISPLAY PAGE HEADER WITH LOGO
+*---------------------------------------------------------------------*
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+
+    EXPORTING
+      IT_LIST_COMMENTARY = IT_HEADER
+      I_LOGO             = 'ENJOYSAP_LOGO'.
+
+ENDFORM.

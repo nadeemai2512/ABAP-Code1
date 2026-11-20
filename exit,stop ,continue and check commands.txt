@@ -1,0 +1,84 @@
+REPORT Z_CONDITIONALEXITANDSTOP.
+
+DATA NUM TYPE I.
+
+WRITE: 'START OF PROGRAM'.
+WRITE: / '--------------------------------'.
+
+"========================================
+" EXIT COMMAND
+"========================================
+WRITE: / 'EXIT COMMAND OUTPUT'.
+WRITE: / '--------------------'.
+
+DO 10 TIMES.
+  NUM = SY-INDEX.
+
+  WRITE: / 'Number:', NUM.
+
+  " EXIT # Stops loop when NUM = 6
+  IF NUM = 6.
+    WRITE: / 'EXIT triggered at 6'.
+    EXIT.
+  ENDIF.
+
+ENDDO.
+
+WRITE: / '--------------------------------'.
+
+"========================================
+" CONTINUE COMMAND
+"========================================
+WRITE: / 'CONTINUE COMMAND OUTPUT'.
+WRITE: / '------------------------'.
+
+DO 10 TIMES.
+  NUM = SY-INDEX.
+
+  " CONTINUE # Skip number 4
+  IF NUM = 4.
+    CONTINUE.
+  ENDIF.
+
+  WRITE: / 'Number:', NUM.
+ENDDO.
+
+WRITE: / '--------------------------------'.
+
+"========================================
+" CHECK COMMAND
+"========================================
+WRITE: / 'CHECK COMMAND OUTPUT'.
+WRITE: / '---------------------'.
+
+DO 10 TIMES.
+  NUM = SY-INDEX.
+
+  " CHECK # Allow only even numbers
+  CHECK NUM MOD 2 = 0.
+
+  WRITE: / 'Even Number:', NUM.
+ENDDO.
+
+WRITE: / '--------------------------------'.
+
+"========================================
+" STOP COMMAND (FINAL BLOCK)
+"========================================
+WRITE: / 'STOP COMMAND OUTPUT'.
+WRITE: / '--------------------'.
+
+DO 5 TIMES.
+  NUM = SY-INDEX.
+
+  WRITE: / 'Processing Number:', NUM.
+
+  " STOP # Ends entire program when NUM = 3
+  IF NUM = 3.
+    WRITE: / 'STOP triggered at 3 - Program Ends'.
+    STOP.
+  ENDIF.
+
+ENDDO.
+
+WRITE: / 'This line will NOT be displayed after STOP'.

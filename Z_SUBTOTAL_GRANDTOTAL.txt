@@ -1,0 +1,137 @@
+REPORT z_subtotal_grandtotal.
+
+TABLES: vbap.
+
+* Selection Screen
+SELECT-OPTIONS: s_vbeln FOR vbap-vbeln.
+
+* Internal Table Structure
+TYPES: BEGIN OF ty_vbap,
+         vbeln  TYPE vbap-vbeln,
+         posnr  TYPE vbap-posnr,
+         matnr  TYPE vbap-matnr,
+         arktx  TYPE vbap-arktx,
+         netwr  TYPE vbap-netwr,
+         kwmeng TYPE vbap-kwmeng,
+         netpr  TYPE vbap-netpr,
+       END OF ty_vbap.
+
+* Data Declarations
+DATA: it_vbap TYPE TABLE OF ty_vbap,
+      wa_vbap TYPE ty_vbap,
+
+      it_fcat TYPE slis_t_fieldcat_alv,
+      wa_fcat TYPE slis_fieldcat_alv,
+
+      it_sort TYPE slis_t_sortinfo_alv,
+      wa_sort TYPE slis_sortinfo_alv.
+
+*---------------------------------------------------------------------*
+* Start of Selection
+*---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  PERFORM get_data.
+  PERFORM build_fcat.
+  PERFORM sort_itab.
+  PERFORM display_data.
+
+*---------------------------------------------------------------------*
+* Get Data
+*---------------------------------------------------------------------*
+FORM get_data.
+
+  SELECT vbeln
+         posnr
+         matnr
+         arktx
+         netwr
+         kwmeng
+         netpr
+    FROM vbap
+    INTO TABLE it_vbap
+    WHERE vbeln IN s_vbeln.
+
+  IF sy-subrc <> 0.
+    MESSAGE 'No records fetched' TYPE 'I'.
+  ENDIF.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* Sorting and Subtotal
+*---------------------------------------------------------------------*
+FORM sort_itab.
+
+  CLEAR wa_sort.
+
+  wa_sort-fieldname = 'VBELN'.
+  wa_sort-up        = 'X'.   "Ascending
+  wa_sort-subtot    = 'X'.   "Subtotal
+
+  APPEND wa_sort TO it_sort.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* Build Field Catalog
+*---------------------------------------------------------------------*
+FORM build_fcat.
+
+  DEFINE mac_fcat.
+
+    CLEAR wa_fcat.
+
+    wa_fcat-col_pos   = &1.
+    wa_fcat-fieldname = &2.
+    wa_fcat-tabname   = 'IT_VBAP'.
+    wa_fcat-just      = 'C'.
+    wa_fcat-seltext_m = &3.
+
+    IF wa_fcat-col_pos = 1 OR
+       wa_fcat-col_pos = 2.
+      wa_fcat-key     = 'X'.
+      wa_fcat-no_zero = 'X'.
+    ENDIF.
+
+    IF wa_fcat-col_pos = 4 OR
+       wa_fcat-col_pos = 5 OR
+       wa_fcat-col_pos = 6.
+      wa_fcat-do_sum = 'X'.
+    ENDIF.
+
+    APPEND wa_fcat TO it_fcat.
+
+  END-OF-DEFINITION.
+
+  mac_fcat 1 'VBELN' 'Sales Document'.
+  mac_fcat 2 'POSNR' 'Sales Item'.
+  mac_fcat 3 'MATNR' 'Material Number'.
+  mac_fcat 4 'NETWR' 'Net Value'.
+  mac_fcat 5 'KWMENG' 'Quantity'.
+  mac_fcat 6 'NETPR' 'Net Price'.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* Display ALV
+*---------------------------------------------------------------------*
+FORM display_data.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = sy-repid
+      i_grid_title       = 'Sales Information'
+      it_fieldcat        = it_fcat
+      it_sort            = it_sort
+    TABLES
+      t_outtab           = it_vbap
+    EXCEPTIONS
+      program_error      = 1
+      OTHERS             = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE 'Error displaying ALV' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.

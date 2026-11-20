@@ -1,0 +1,63 @@
+*&---------------------------------------------------------------------*
+*& Report Z_LOCAL_CLASS_ITAB
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_LOCAL_CLASS_ITAB.
+
+TYPES: BEGIN OF ty_employee,
+         emp_id TYPE i,
+         name   TYPE string,
+         salary TYPE i,
+       END OF ty_employee.
+
+TYPES: tt_employee TYPE STANDARD TABLE OF ty_employee
+                    WITH DEFAULT KEY.
+
+
+CLASS lcl_employee DEFINITION.
+
+  PUBLIC SECTION.
+
+    METHODS display_data
+      IMPORTING
+        it_employee TYPE tt_employee.
+
+ENDCLASS.
+
+
+CLASS lcl_employee IMPLEMENTATION.
+
+  METHOD display_data.
+
+    LOOP AT it_employee INTO DATA(ls_employee).
+
+      WRITE: / 'Employee ID:', ls_employee-emp_id,
+             'Name:',        ls_employee-name,
+             'Salary:',      ls_employee-salary.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+START-OF-SELECTION.
+
+  DATA: lt_employee TYPE tt_employee.
+
+  "Fill internal table
+  lt_employee = VALUE #(
+    ( emp_id = 101 name = 'Rahul' salary = 300000 )
+    ( emp_id = 102 name = 'Amit'  salary = 4000000 )
+    ( emp_id = 103 name = 'John'  salary = 5000000 )
+  ).
+
+  "Create object
+  DATA(lo_employee) = NEW lcl_employee( ).
+
+  "Pass internal table to class method
+  lo_employee->display_data(
+    it_employee = lt_employee
+  ).

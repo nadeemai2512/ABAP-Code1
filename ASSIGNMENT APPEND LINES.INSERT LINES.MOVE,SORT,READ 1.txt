@@ -1,0 +1,140 @@
+REPORT Z_INTERNAL_TABLETYPES.
+
+* TYPE DECLARATION
+TYPES: BEGIN OF ty_emp,
+         emp_no   TYPE numc3,
+         emp_name TYPE char15,
+         emp_ph   TYPE num10,
+         emp_city TYPE char15,
+         emp_sal  TYPE i,
+       END OF ty_emp.
+
+DATA: it_emp  TYPE TABLE OF ty_emp,
+      it_emp2 TYPE TABLE OF ty_emp,
+      it_emp3 TYPE TABLE OF ty_emp,
+      wa_emp  TYPE ty_emp.
+
+* APPEND DATA
+
+wa_emp-emp_no = 101. wa_emp-emp_name = 'ARJUN'. wa_emp-emp_ph = 9123456789. wa_emp-emp_city = 'BANGALORE'. wa_emp-emp_sal = 15000.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+wa_emp-emp_no = 102. wa_emp-emp_name = 'KIRAN'. wa_emp-emp_ph = 9234567890. wa_emp-emp_city = 'PUNE'. wa_emp-emp_sal = 12000.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+wa_emp-emp_no = 103. wa_emp-emp_name = 'NEHA'. wa_emp-emp_ph = 9345678901. wa_emp-emp_city = 'CHENNAI'. wa_emp-emp_sal = 14000.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+wa_emp-emp_no = 104. wa_emp-emp_name = 'ROHAN'. wa_emp-emp_ph = 9456789012. wa_emp-emp_city = 'DELHI'. wa_emp-emp_sal = 13000.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+wa_emp-emp_no = 105. wa_emp-emp_name = 'PRIYA'. wa_emp-emp_ph = 9567890123. wa_emp-emp_city = 'HYDERABAD'. wa_emp-emp_sal = 11000.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+wa_emp-emp_no = 106. wa_emp-emp_name = 'ANIL'. wa_emp-emp_ph = 9678901234. wa_emp-emp_city = 'MUMBAI'. wa_emp-emp_sal = 12500.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+wa_emp-emp_no = 107. wa_emp-emp_name = 'MEENA'. wa_emp-emp_ph = 9789012345. wa_emp-emp_city = 'KOLKATA'. wa_emp-emp_sal = 13500.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+wa_emp-emp_no = 108. wa_emp-emp_name = 'RAJ'. wa_emp-emp_ph = 9890123456. wa_emp-emp_city = 'NOIDA'. wa_emp-emp_sal = 10000.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+wa_emp-emp_no = 109. wa_emp-emp_name = 'SONIA'. wa_emp-emp_ph = 9001234567. wa_emp-emp_city = 'GURGAON'. wa_emp-emp_sal = 14500.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+wa_emp-emp_no = 110. wa_emp-emp_name = 'VIKAS'. wa_emp-emp_ph = 9112345678. wa_emp-emp_city = 'JAIPUR'. wa_emp-emp_sal = 11500.
+APPEND wa_emp TO it_emp. CLEAR wa_emp.
+
+* DISPLAY ITAB1
+
+WRITE: / 'ITAB1 DATA'.
+LOOP AT it_emp INTO wa_emp.
+  WRITE: / sy-tabix, wa_emp-emp_no, wa_emp-emp_name,
+           wa_emp-emp_ph, wa_emp-emp_city, wa_emp-emp_sal.
+ENDLOOP.
+
+ULINE.
+
+* APPEND LINES
+
+APPEND LINES OF it_emp FROM 3 TO 7 TO it_emp2.
+
+WRITE:/ 'APPEND LINES (3 TO 7) INTO ITAB2'.
+LOOP AT it_emp2 INTO wa_emp.
+  WRITE: / sy-tabix, wa_emp-emp_no, wa_emp-emp_name,
+           wa_emp-emp_ph, wa_emp-emp_city, wa_emp-emp_sal.
+ENDLOOP.
+
+ULINE.
+
+* INSERT LINES
+INSERT LINES OF it_emp FROM 2 TO 6 INTO it_emp2 INDEX 2.
+
+WRITE:/ 'INSERT LINES INTO ITAB2'.
+LOOP AT it_emp2 INTO wa_emp.
+  WRITE: / sy-tabix, wa_emp-emp_no, wa_emp-emp_name,
+           wa_emp-emp_ph, wa_emp-emp_city, wa_emp-emp_sal.
+ENDLOOP.
+
+ULINE.
+
+* MOVE / COPY
+it_emp3 = it_emp.
+
+WRITE:/ 'COPY ITAB1 TO ITAB3'.
+LOOP AT it_emp3 INTO wa_emp.
+  WRITE: / sy-tabix, wa_emp-emp_no, wa_emp-emp_name,
+           wa_emp-emp_ph, wa_emp-emp_city, wa_emp-emp_sal.
+ENDLOOP.
+
+ULINE.
+* MODIFY
+WRITE: / 'MODIFY RECORD AT INDEX 5'.
+
+wa_emp-emp_no = 199.
+wa_emp-emp_name = 'UPDATED'.
+wa_emp-emp_ph = 9999999999.
+wa_emp-emp_city = 'NEWCITY'.
+wa_emp-emp_sal = 20000.
+
+MODIFY it_emp FROM wa_emp INDEX 5.
+
+IF sy-subrc = 0.
+  LOOP AT it_emp INTO wa_emp.
+    WRITE: / sy-tabix, wa_emp-emp_no, wa_emp-emp_name,
+             wa_emp-emp_ph, wa_emp-emp_city, wa_emp-emp_sal.
+  ENDLOOP.
+ELSE.
+  WRITE:/ 'RECORD NOT MODIFIED'.
+ENDIF.
+
+ULINE.
+* SORT + READ TABLE
+
+WRITE: / 'READ TABLE EXAMPLE'.
+
+SORT it_emp BY emp_no.
+
+* SUCCESS CASE
+CLEAR wa_emp.
+READ TABLE it_emp INTO wa_emp WITH KEY emp_no = 104 BINARY SEARCH.
+
+IF sy-subrc = 0.
+  WRITE: / 'SUCCESS: RECORD FOUND'.
+  WRITE: / wa_emp-emp_no, wa_emp-emp_name,
+           wa_emp-emp_city, wa_emp-emp_sal.
+ELSE.
+  WRITE: / 'NOT FOUND'.
+ENDIF.
+
+ULINE.
+* FAILURE CASE
+CLEAR wa_emp.
+READ TABLE it_emp INTO wa_emp WITH KEY emp_no = 999 BINARY SEARCH.
+
+IF sy-subrc = 0.
+  WRITE: / 'FOUND:', wa_emp-emp_no.
+ELSE.
+  WRITE: / 'FAILURE CASE: RECORD NOT FOUND'.
+ENDIF.

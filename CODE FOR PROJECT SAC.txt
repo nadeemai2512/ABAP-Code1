@@ -1,0 +1,298 @@
+REPORT ZRAGHU_CONTROLCODE_REPORT.
+
+* TO CREATE SSCRFIELDS IMPLICIT WORK AREA
+TABLES SSCRFIELDS.
+
+*    TO CREATE A LINE TYPE FOR MARA
+TYPES : BEGIN OF STR1,
+          MATNR TYPE MATNR,
+          ERSDA TYPE ERSDA,
+          ERNAM TYPE ERNAM,
+          MTART TYPE MTART,
+          MBRSH TYPE MBRSH,
+          MATKL TYPE MATKL,
+          MEINS TYPE MEINS,
+        END OF STR1.
+
+*   TO CREATE A LINE TYPE FOR MARC
+TYPES : BEGIN OF STR2,
+          MATNR TYPE MATNR,
+          WERKS TYPE WERKS_D,
+          EKGRP TYPE EKGRP,
+          STEUC TYPE STEUC,
+        END OF STR2.
+
+*    TO CREATE A LINE TYPE FOR MAKT
+TYPES : BEGIN OF STR3,
+          MATNR TYPE MATNR,
+          SPRAS TYPE SPRAS,
+          MAKTX TYPE MAKTX,
+        END OF STR3.
+
+*    TO CREATE A LINE TYPE FOR MBEW
+TYPES : BEGIN OF STR4,
+          MATNR TYPE MATNR,
+          BWKEY TYPE BWKEY,
+          BWTAR TYPE BWTAR_D,
+          BKLAS TYPE BKLAS,
+        END OF STR4.
+
+*    TO CREATE A LINE TYPE FOR MVKE
+TYPES : BEGIN OF STR5,
+          MATNR TYPE MATNR,
+          VKORG TYPE VKORG,
+          VTWEG TYPE VTWEG,
+          DWERK TYPE DWERK_EXT,
+          KTGRM TYPE KTGRM,
+        END OF STR5.
+
+*    TO CREATE A LINE TYPE FOR FINAL INTERNAL TABLE WITH ALL FIELDS
+TYPES : BEGIN OF STR6,
+          MATNR TYPE MATNR,
+          ERNAM TYPE ERNAM,
+          ERSDA TYPE ERSDA,
+          MTART TYPE MTART,
+          MBRSH TYPE MBRSH,
+          MATKL TYPE MATKL,
+          MEINS TYPE MEINS,
+          WERKS TYPE WERKS_D,
+          EKGRP TYPE EKGRP,
+          STEUC TYPE STEUC,
+          SPRAS TYPE SPRAS,
+          MAKTX TYPE MAKTX,
+          BWKEY TYPE BWKEY,
+          BWTAR TYPE BWTAR_D,
+          BKLAS TYPE BKLAS,
+          VKORG TYPE VKORG,
+          VTWEG TYPE VTWEG,
+          DWERK TYPE DWERK_EXT,
+          KTGRM TYPE KTGRM,
+        END OF STR6.
+
+*   TO CREATE A INTERNAL TABLES & WORK AREAS FOR ALL LINE TYPES OR STRUCTURES
+DATA : IT_MARA  TYPE TABLE OF STR1,
+       IT_MARC  TYPE TABLE OF STR2,
+       IT_MAKT  TYPE TABLE OF STR3,
+       IT_MBEW  TYPE TABLE OF STR4,
+       IT_MVKE  TYPE TABLE OF STR5,
+       IT_FINAL TYPE TABLE OF STR6,
+       IT_FCAT  TYPE TABLE OF SLIS_FIELDCAT_ALV,
+       WA_MARA  TYPE STR1,
+       WA_MARC  TYPE STR2,
+       WA_MAKT  TYPE STR3,
+       WA_MBEW  TYPE STR4,
+       WA_MVKE  TYPE STR5,
+       WA_FINAL TYPE STR6,
+       WA_FCAT  TYPE SLIS_FIELDCAT_ALV.
+
+*    TO CREATE A VARAIBLES FOR SELECT OPTIONS
+DATA : F_MTART TYPE MARA-MTART,
+       F_STEUC TYPE MARC-STEUC,
+       F_WERKS TYPE MARC-WERKS.
+SELECTION-SCREEN BEGIN OF BLOCK B1 WITH FRAME TITLE TEXT-004.
+*    TO CREATE RANGE OF INPUT FIELDS FOR ABOVE FIELDS
+SELECT-OPTIONS S_MTART FOR F_MTART.
+SELECT-OPTIONS S_WERKS FOR F_WERKS.
+SELECT-OPTIONS S_STEUC FOR F_STEUC.
+
+*  TO CREATE PUSH BUTTON
+SELECTION-SCREEN SKIP 2.
+SELECTION-SCREEN PUSHBUTTON 37(10) PUSH1 USER-COMMAND FT1.
+SELECTION-SCREEN PUSHBUTTON 57(10) PUSH2 USER-COMMAND FT2.
+
+SELECTION-SCREEN END OF BLOCK B1.
+
+*  TO INITIALIZE VALUES TO PUSHBUTTONS
+INITIALIZATION.
+  PUSH1 = 'Display'.
+  PUSH2 = 'Exit'.
+
+*   TO MAKE PUSHBUTTONS WORK WITH FUNCTIONALITY
+AT SELECTION-SCREEN.
+  IF SSCRFIELDS-UCOMM = 'FT2'.
+    LEAVE PROGRAM.
+  ELSEIF SSCRFIELDS-UCOMM = 'FT1'.
+    SSCRFIELDS-UCOMM = 'ONLI'.
+  ENDIF.
+
+
+START-OF-SELECTION.
+  PERFORM FETCH_DATA.
+  PERFORM SORTING.
+  PERFORM PROCESS_DATA.
+  PERFORM BUILD_FCAT.
+  PERFORM DISPLAY_OUTPUT.
+*&---------------------------------------------------------------------*
+*&      Form  FETCH_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM FETCH_DATA .
+
+  SELECT MATNR ERSDA ERNAM MTART MBRSH MATKL MEINS FROM MARA INTO TABLE IT_MARA
+    WHERE MTART IN S_MTART.
+
+  IF IT_MARA IS NOT INITIAL.
+    SELECT MATNR WERKS EKGRP STEUC FROM MARC INTO TABLE IT_MARC
+      FOR ALL ENTRIES IN IT_MARA WHERE MATNR = IT_MARA-MATNR AND WERKS IN S_WERKS
+      AND STEUC IN S_STEUC.
+
+    SELECT MATNR SPRAS MAKTX FROM MAKT INTO TABLE IT_MAKT FOR ALL ENTRIES IN IT_MARA
+      WHERE MATNR = IT_MARA-MATNR AND SPRAS = SY-LANGU.
+  ENDIF.
+
+  IF IT_MARA IS NOT INITIAL.
+    SELECT MATNR BWKEY BWTAR BKLAS FROM MBEW INTO TABLE IT_MBEW FOR ALL ENTRIES IN IT_MARA
+      WHERE MATNR = IT_MARA-MATNR.
+  ENDIF.
+
+  IF IT_MARC IS NOT INITIAL.
+    SELECT MATNR VKORG VTWEG DWERK KTGRM FROM MVKE INTO TABLE IT_MVKE FOR ALL ENTRIES IN IT_MARC
+      WHERE MATNR = IT_MARC-MATNR AND DWERK = IT_MARC-WERKS.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SORTING
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM SORTING .
+*  SORT ALL INTERNAL TABLE WITH KEY FIELDS FOR BINARY SEARCH
+  SORT : IT_MARA BY MATNR,
+         IT_MARC BY MATNR WERKS,
+         IT_MVKE BY MATNR VKORG VTWEG,
+         IT_MAKT BY MATNR,
+         IT_MBEW BY MATNR BWKEY.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  PROCESS_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM PROCESS_DATA .
+  LOOP AT IT_MARC INTO WA_MARC.
+
+    WA_FINAL-MATNR = WA_MARC-MATNR.
+    WA_FINAL-WERKS = WA_MARC-WERKS.
+    WA_FINAL-EKGRP = WA_MARC-EKGRP.
+    WA_FINAL-STEUC = WA_MARC-STEUC.
+
+    READ TABLE IT_MARA INTO WA_MARA WITH KEY MATNR = WA_MARC-MATNR BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      WA_FINAL-ERSDA = WA_MARA-ERSDA.
+      WA_FINAL-ERNAM = WA_MARA-ERNAM.
+      WA_FINAL-MTART = WA_MARA-MTART.
+      WA_FINAL-MBRSH = WA_MARA-MBRSH.
+      WA_FINAL-MATKL = WA_MARA-MATKL.
+      WA_FINAL-MEINS = WA_MARA-MEINS.
+    ENDIF.
+
+    READ TABLE IT_MAKT INTO WA_MAKT WITH KEY MATNR = WA_MARC-MATNR SPRAS = SY-LANGU BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      WA_FINAL-SPRAS = WA_MAKT-SPRAS.
+      WA_FINAL-MAKTX = WA_MAKT-MAKTX.
+    ENDIF.
+
+    READ TABLE IT_MBEW INTO WA_MBEW WITH KEY MATNR = WA_MARC-MATNR BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      WA_FINAL-BWKEY = WA_MBEW-BWKEY.
+*      WA_FINAL-BWTAR = WA_MBEW-BWTAR.
+      WA_FINAL-BKLAS = WA_MBEW-BKLAS.
+    ENDIF.
+
+    LOOP AT IT_MVKE INTO WA_MVKE WHERE MATNR = WA_MARC-MATNR AND DWERK = WA_MARC-WERKS.
+      WA_FINAL-VKORG = WA_MVKE-VKORG.
+      WA_FINAL-VTWEG = WA_MVKE-VTWEG.
+      WA_FINAL-DWERK = WA_MVKE-DWERK.
+      WA_FINAL-KTGRM = WA_MVKE-KTGRM.
+    ENDLOOP.
+    APPEND WA_FINAL TO IT_FINAL.
+    CLEAR :WA_FINAL,WA_MARA,WA_MARC,WA_MAKT,WA_MBEW,WA_MVKE.
+  ENDLOOP.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  BUILD_FCAT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM BUILD_FCAT .
+
+  DEFINE MACRO_FCAT.
+    CLEAR WA_FCAT.
+
+    WA_FCAT-COL_POS = &1.
+    WA_FCAT-FIELDNAME = &2.
+    WA_FCAT-JUST = 'C'.
+    WA_FCAT-TABNAME = 'IT_FINAL'.
+    WA_FCAT-SELTEXT_M = &3.
+
+    IF WA_FCAT-COL_POS = 1 OR WA_FCAT-COL_POS = 3 OR WA_FCAT-COL_POS = 4 OR WA_FCAT-COL_POS = 10 OR WA_FCAT-COL_POS = 18.
+      WA_FCAT-KEY = 'X'.
+      ENDIF.
+
+      IF WA_FCAT-COL_POS = 2.
+        WA_FCAT-EMPHASIZE = 'C410'.
+        ENDIF.
+
+    APPEND WA_FCAT TO IT_FCAT.
+  END-OF-DEFINITION.
+
+  MACRO_FCAT 1 'MATNR' 'MATERIAL NUMBER'.
+  MACRO_FCAT 2 'STEUC' 'CONTROL CODES'.
+  MACRO_FCAT 3 'VKORG' 'SALES ORG'.
+  MACRO_FCAT 4 'VTWEG' 'DISTRIBUTION CHANNEL'.
+  MACRO_FCAT 5 'KTGRM' 'ACC ASSN GROUP'.
+  MACRO_FCAT 6 'DWERK' 'DELIVERY PLANT'.
+  MACRO_FCAT 7 'MTART' 'MATERAIL TYPE'.
+  MACRO_FCAT 8 'ERSDA' 'DATE OF CREATION'.
+  MACRO_FCAT 9 'ERNAM' 'CREATED BY'.
+  MACRO_FCAT 10 'WERKS' 'PLANT'.
+  MACRO_FCAT 11 'MBRSH' 'INDUSTRY SECTOR'.
+  MACRO_FCAT 12 'MATKL' 'MATERIAL GROUP'.
+  MACRO_FCAT 13 'MEINS' 'UNIT OF MEASUREMENT'.
+  MACRO_FCAT 14 'BKLAS' 'VALUATION CLASS'.
+  MACRO_FCAT 15 'MAKTX' 'MATERIAL DESCRIPTION'.
+  MACRO_FCAT 16 'EKGRP' 'PURCHASING GROUP'.
+  MACRO_FCAT 17 'SPRAS' 'LANGUAGE KEY'.
+  MACRO_FCAT 18 'BWKEY' 'VALUATION AREA'.
+*  MACRO_FCAT 19 'BWTAR' 'BWTAR'.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM DISPLAY_OUTPUT .
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      I_CALLBACK_PROGRAM = SY-REPID
+      I_GRID_TITLE       = 'HCN & SAC CODES FOR MATERIALS'
+      IT_FIELDCAT        = IT_FCAT
+    TABLES
+      T_OUTTAB           = IT_FINAL
+    EXCEPTIONS
+      PROGRAM_ERROR      = 1
+      OTHERS             = 2.
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+ENDFORM.

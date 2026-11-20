@@ -1,0 +1,29 @@
+REPORT ZABAPPROGRAM.
+
+WRITE: 'Hello, World!'.
+
+* To Create Variable *
+DATA V1 TYPE I.
+DATA VTEXT(35) TYPE C.
+DATA DATE TYPE D.
+DATA MOB TYPE N.
+DATA P1 TYPE P DECIMALS 2.
+DATA TIME TYPE T.
+DATA TEXT TYPE STRING.
+
+V1 = 77.
+VTEXT = 'hyd'.
+DATE = '20260418'.
+MOB = '8897526028'.
+P1 = '39.75'.
+TIME = '072255'.
+TEXT = 'Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry'.
+
+WRITE V1.
+WRITE / VTEXT.
+WRITE / DATE.
+WRITE / MOB.
+WRITE / P1.
+WRITE TEXT.
+WRITE /(10) DATE.
+WRITE /(8) TIME.

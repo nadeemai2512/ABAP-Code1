@@ -1,0 +1,116 @@
+REPORT Z_INTERNALTABLE.
+* EXAMPLE 1: EMPLOYEE
+*---------------------------------------------------------------------*
+WRITE: / 'INTERNAL TABLE - EMPLOYEE'.
+ULINE.
+
+DATA: BEGIN OF rec OCCURS 0,
+        eno   TYPE n LENGTH 4,
+        ename TYPE c LENGTH 20,
+        esal  TYPE c LENGTH 6,
+      END OF rec.
+
+rec-eno   = 1001.
+rec-ename = 'MOHAN'.
+rec-esal  = '712634'.
+APPEND rec.
+
+rec-eno   = 1002.
+rec-ename = 'RAVI'.
+rec-esal  = '500000'.
+APPEND rec.
+
+LOOP AT rec.
+  WRITE: / rec-eno COLOR 2 INTENSIFIED,
+         rec-ename COLOR 3 INTENSIFIED,
+         rec-esal COLOR 5 INTENSIFIED.
+ENDLOOP.
+
+ULINE.
+* EXAMPLE 2: STUDENT
+*---------------------------------------------------------------------*
+WRITE: / 'INTERNAL TABLE - STUDENT'.
+ULINE.
+
+DATA: BEGIN OF rec1 OCCURS 0,
+        sid   TYPE n LENGTH 3,
+        sname TYPE c LENGTH 15,
+        marks TYPE c LENGTH 3,
+      END OF rec1.
+
+rec1-sid   = 101.
+rec1-sname = 'NARUTO'.
+rec1-marks = '085'.
+APPEND rec1.
+
+rec1-sid   = 102.
+rec1-sname = 'SASUKE'.
+rec1-marks = '092'.
+APPEND rec1.
+
+LOOP AT rec1.
+  WRITE: / rec1-sid COLOR 6,
+         rec1-sname COLOR 1 INTENSIFIED,
+         rec1-marks COLOR 4.
+ENDLOOP.
+
+ULINE.
+* EXAMPLE 3: PRODUCT
+*---------------------------------------------------------------------*
+WRITE: / 'INTERNAL TABLE - PRODUCT'.
+ULINE.
+
+DATA: BEGIN OF rec2 OCCURS 0,
+        pid   TYPE n LENGTH 3,
+        pname TYPE c LENGTH 20,
+        price TYPE c LENGTH 6,
+      END OF rec2.
+
+rec2-pid   = 501.
+rec2-pname = 'LAPTOP'.
+rec2-price = '55000'.
+APPEND rec2.
+
+rec2-pid   = 502.
+rec2-pname = 'MOBILE'.
+rec2-price = '20000'.
+APPEND rec2.
+
+LOOP AT rec2.
+  WRITE: / rec2-pid COLOR 5 INTENSIFIED,
+         rec2-pname COLOR 2,
+         rec2-price COLOR 7.
+ENDLOOP.
+
+ULINE.
+
+* EXAMPLE 4: VEHICLE
+*---------------------------------------------------------------------*
+WRITE: / 'INTERNAL TABLE - VEHICLE'.
+ULINE.
+
+DATA: BEGIN OF rec3 OCCURS 0,
+        vid   TYPE n LENGTH 3,
+        vname TYPE c LENGTH 20,
+        price TYPE c LENGTH 7,
+      END OF rec3.
+
+rec3-vid   = 301.
+rec3-vname = 'CAR'.
+rec3-price = '800000'.
+APPEND rec3.
+
+rec3-vid   = 302.
+rec3-vname = 'BIKE'.
+rec3-price = '120000'.
+APPEND rec3.
+
+LOOP AT rec3.
+  WRITE: / rec3-vid COLOR 3,
+         rec3-vname COLOR 6 INTENSIFIED,
+         rec3-price COLOR 2.
+ENDLOOP.
+
+ULINE.
+
+WRITE: / '===== END OF PROGRAM ====='.

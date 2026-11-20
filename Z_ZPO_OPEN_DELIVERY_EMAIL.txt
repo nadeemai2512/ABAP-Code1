@@ -1,0 +1,644 @@
+REPORT Z_ZPO_OPEN_DELIVERY_EMAIL.
+
+*&---------------------------------------------------------------------*
+*&  T Y P E S
+*&---------------------------------------------------------------------*
+TYPES: BEGIN OF ty_final,
+         ebeln      TYPE ebeln,       " PO Number
+         ebelp      TYPE ebelp,       " PO Line Item
+         aedat      TYPE erdat,       " PO Date (created on)
+         ekgrp      TYPE bkgrp,       " Purchasing Group
+         po_officer TYPE ad_smtpadr,  " Purchase Officer e-mail (Buyer)
+         matnr      TYPE matnr,       " Material Code
+         maktx      TYPE maktx,       " Material Description
+         werks      TYPE werks_d,     " Plant
+         eindt      TYPE eindt,       " PO Delivery Date
+         menge      TYPE menge_d,     " Order Quantity
+         meins      TYPE bstme,       " UOM
+         rec_qty    TYPE menge_d,     " Received Quantity
+         open_qty   TYPE menge_d,     " Still To Be Delivered Quantity
+         open_perc  TYPE p DECIMALS 2," Still To Be Delivered Qty in %
+         deliv_age  TYPE i,           " Delivery Age (days delayed)
+         lifnr      TYPE lifnr,       " Vendor Number
+         name1      TYPE name1_gp,    " Vendor Name
+         ven_email  TYPE ad_smtpadr,  " Vendor E-mail
+         ernam      TYPE ernam,       " Created By (User ID)
+         cre_email  TYPE ad_smtpadr,  " Creator E-mail
+         buyer_ph   TYPE ad_tlnmbr1,  " Buyer Phone
+       END OF ty_final.
+
+TYPES: BEGIN OF ty_ekko,
+         ebeln TYPE ebeln,
+         aedat TYPE erdat,
+         ernam TYPE ernam,
+         lifnr TYPE elifn,
+         ekgrp TYPE bkgrp,
+         ekorg TYPE ekorg,
+         bsart TYPE bsart,
+         frgke TYPE frgke,
+       END OF ty_ekko.
+
+TYPES: BEGIN OF ty_ekpo,
+         ebeln TYPE ebeln,
+         ebelp TYPE ebelp,
+         matnr TYPE matnr,
+         werks TYPE ewerk,
+         menge TYPE bstmg,
+         meins TYPE bstme,
+         loekz TYPE eloek,
+         elikz TYPE elikz,
+       END OF ty_ekpo.
+
+TYPES: BEGIN OF ty_eket,
+         ebeln TYPE ebeln,
+         ebelp TYPE ebelp,
+         etenr TYPE eeten,
+         eindt TYPE eindt,
+       END OF ty_eket.
+
+TYPES: BEGIN OF ty_ekbe,
+         ebeln TYPE ebeln,
+         ebelp TYPE ebelp,
+         zekkn TYPE dzekkn,
+         vgabe TYPE vgabe,
+         gjahr TYPE mjahr,
+         belnr TYPE mblnr,
+         buzei TYPE mblpo,
+         bwart TYPE bwart,
+         menge TYPE menge_d,
+       END OF ty_ekbe.
+
+TYPES: BEGIN OF ty_lfa1,
+         lifnr TYPE lifnr,
+         name1 TYPE name1_gp,
+         adrnr TYPE adrnr,
+       END OF ty_lfa1.
+
+TYPES: BEGIN OF ty_adr6,
+         addrnumber TYPE ad_addrnum,
+         persnumber TYPE ad_persnum,
+         smtp_addr  TYPE ad_smtpadr,
+       END OF ty_adr6.
+
+TYPES: BEGIN OF ty_makt,
+         matnr TYPE matnr,
+         maktx TYPE maktx,
+         spras TYPE spras,
+       END OF ty_makt.
+
+TYPES: BEGIN OF ty_t024,
+         ekgrp TYPE bkgrp,
+         eknam TYPE eknam,
+       END OF ty_t024.
+
+TYPES: BEGIN OF ty_usr21,
+         bname      TYPE xubname,
+         addrnumber TYPE ad_addrnum,
+         persnumber TYPE ad_persnum,
+       END OF ty_usr21.
+
+*&---------------------------------------------------------------------*
+*&  D A T A
+*&---------------------------------------------------------------------*
+DATA: gt_ekko    TYPE TABLE OF ty_ekko,
+      gs_ekko    TYPE ty_ekko,
+      gt_ekpo    TYPE TABLE OF ty_ekpo,
+      gs_ekpo    TYPE ty_ekpo,
+      gt_eket    TYPE TABLE OF ty_eket,
+      gs_eket    TYPE ty_eket,
+      gt_ekbe    TYPE TABLE OF ty_ekbe,
+      gs_ekbe    TYPE ty_ekbe,
+      gt_lfa1    TYPE TABLE OF ty_lfa1,
+      gs_lfa1    TYPE ty_lfa1,
+      gt_adr6    TYPE TABLE OF ty_adr6,   " vendor / buyer address
+      gs_adr6    TYPE ty_adr6,
+      gt_adr6_us TYPE TABLE OF ty_adr6,   " creator (user) address
+      gs_adr6_us TYPE ty_adr6,
+      gt_makt    TYPE TABLE OF ty_makt,
+      gs_makt    TYPE ty_makt,
+      gt_t024    TYPE TABLE OF ty_t024,
+      gs_t024    TYPE ty_t024,
+      gt_usr21   TYPE TABLE OF ty_usr21,
+      gs_usr21   TYPE ty_usr21,
+      gt_final   TYPE TABLE OF ty_final,
+      gs_final   TYPE ty_final,
+      gt_final2  TYPE TABLE OF ty_final.
+
+DATA: gt_fieldcat TYPE slis_t_fieldcat_alv,
+      gs_fieldcat TYPE slis_fieldcat_alv,
+      gs_layout   TYPE slis_layout_alv.
+
+CONSTANTS: c_zdom TYPE bsart VALUE 'ZDOM',
+           c_zimp TYPE bsart VALUE 'ZIMP',
+           c_101  TYPE bwart VALUE '101',
+           c_102  TYPE bwart VALUE '102',
+           c_103  TYPE bwart VALUE '103',
+           c_104  TYPE bwart VALUE '104'.
+
+*&---------------------------------------------------------------------*
+*&  S E L E C T I O N   S C R E E N
+*&---------------------------------------------------------------------*
+SELECT-OPTIONS: s_ekorg FOR gs_ekko-ekorg.
+PARAMETERS:     p_test  AS CHECKBOX DEFAULT ''.   " Test/Demo mode - fills
+                                                   " sample rows so the ALV
+                                                   " and mail always have
+                                                   " data to show, even if
+                                                   " no live PO in the
+                                                   " system currently
+                                                   " matches the selection.
+
+*&---------------------------------------------------------------------*
+START-OF-SELECTION.
+  IF p_test = 'X'.
+    PERFORM fill_test_data.
+  ELSE.
+    PERFORM get_data.
+    PERFORM process_data.
+    IF gt_final IS INITIAL.
+      MESSAGE 'No open PO items found for the given selection - run with Test Mode ON to preview the layout.' TYPE 'I'.
+    ENDIF.
+  ENDIF.
+
+END-OF-SELECTION.
+  PERFORM display_alv.
+  PERFORM send_email.
+
+*&---------------------------------------------------------------------*
+*&      Form  GET_DATA
+*&---------------------------------------------------------------------*
+FORM get_data.
+
+* 1) PO Header - only released POs of type ZDOM / ZIMP
+  SELECT ebeln aedat ernam lifnr ekgrp ekorg bsart frgke
+    FROM ekko
+    INTO TABLE gt_ekko
+    WHERE bsart IN (c_zdom, c_zimp)
+      AND frgke  = 'R'
+      AND ekorg IN s_ekorg.
+
+  CHECK gt_ekko IS NOT INITIAL.
+
+* 2) PO Items - exclude deleted items and items with delivery completed
+  SELECT ebeln ebelp matnr werks menge meins loekz elikz
+    FROM ekpo
+    INTO TABLE gt_ekpo
+    FOR ALL ENTRIES IN gt_ekko
+    WHERE ebeln = gt_ekko-ebeln
+      AND loekz = ''
+      AND elikz = ''.
+
+  CHECK gt_ekpo IS NOT INITIAL.
+
+* 3) Schedule lines - only items whose delivery date has already passed
+  SELECT ebeln ebelp etenr eindt
+    FROM eket
+    INTO TABLE gt_eket
+    FOR ALL ENTRIES IN gt_ekpo
+    WHERE ebeln = gt_ekpo-ebeln
+      AND ebelp = gt_ekpo-ebelp
+      AND eindt LT sy-datum.
+
+  CHECK gt_eket IS NOT INITIAL.
+
+* 4) Goods Receipt history (101/102/103/104, VGABE = '1')
+  SELECT ebeln ebelp zekkn vgabe gjahr belnr buzei bwart menge
+    FROM ekbe
+    INTO TABLE gt_ekbe
+    FOR ALL ENTRIES IN gt_eket
+    WHERE ebeln = gt_eket-ebeln
+      AND ebelp = gt_eket-ebelp
+      AND vgabe = '1'
+      AND bwart IN (c_101, c_102, c_103, c_104).
+
+* 5) Vendor master
+  SELECT lifnr name1 adrnr
+    FROM lfa1
+    INTO TABLE gt_lfa1
+    FOR ALL ENTRIES IN gt_ekko
+    WHERE lifnr = gt_ekko-lifnr.
+
+* 6) Vendor / Buyer e-mail addresses
+  IF gt_lfa1 IS NOT INITIAL.
+    SELECT addrnumber persnumber smtp_addr
+      FROM adr6
+      INTO TABLE gt_adr6
+      FOR ALL ENTRIES IN gt_lfa1
+      WHERE addrnumber = gt_lfa1-adrnr.
+  ENDIF.
+
+* 7) Material description
+  SELECT matnr maktx spras
+    FROM makt
+    INTO TABLE gt_makt
+    FOR ALL ENTRIES IN gt_ekpo
+    WHERE matnr = gt_ekpo-matnr
+      AND spras = sy-langu.
+
+* 8) Purchasing Group description (used as Purchase Officer / Buyer group)
+  SELECT ekgrp eknam
+    FROM t024
+    INTO TABLE gt_t024
+    FOR ALL ENTRIES IN gt_ekko
+    WHERE ekgrp = gt_ekko-ekgrp.
+
+* 9) User master (creator) -> address number
+  SELECT bname addrnumber persnumber
+    FROM usr21
+    INTO TABLE gt_usr21
+    FOR ALL ENTRIES IN gt_ekko
+    WHERE bname = gt_ekko-ernam.
+
+* 10) Creator e-mail addresses
+  IF gt_usr21 IS NOT INITIAL.
+    SELECT addrnumber persnumber smtp_addr
+      FROM adr6
+      INTO TABLE gt_adr6_us
+      FOR ALL ENTRIES IN gt_usr21
+      WHERE addrnumber = gt_usr21-addrnumber.
+  ENDIF.
+
+ENDFORM.                    "GET_DATA
+
+*&---------------------------------------------------------------------*
+*&      Form  PROCESS_DATA
+*&---------------------------------------------------------------------*
+FORM process_data.
+
+  DATA: lv_rec_qty TYPE menge_d.
+
+  LOOP AT gt_eket INTO gs_eket.
+
+    CLEAR gs_final.
+
+* --- PO Header fields ---
+    READ TABLE gt_ekko INTO gs_ekko WITH KEY ebeln = gs_eket-ebeln.
+    IF sy-subrc = 0.
+      gs_final-ebeln = gs_ekko-ebeln.
+      gs_final-aedat = gs_ekko-aedat.
+      gs_final-ekgrp = gs_ekko-ekgrp.
+      gs_final-ernam = gs_ekko-ernam.
+      gs_final-lifnr = gs_ekko-lifnr.
+    ELSE.
+      CONTINUE.
+    ENDIF.
+
+* --- PO Item fields ---
+    READ TABLE gt_ekpo INTO gs_ekpo WITH KEY ebeln = gs_eket-ebeln
+                                              ebelp = gs_eket-ebelp.
+    IF sy-subrc = 0.
+      gs_final-ebelp = gs_ekpo-ebelp.
+      gs_final-matnr = gs_ekpo-matnr.
+      gs_final-werks = gs_ekpo-werks.
+      gs_final-menge = gs_ekpo-menge.
+      gs_final-meins = gs_ekpo-meins.
+    ELSE.
+      CONTINUE.
+    ENDIF.
+
+* --- Delivery date ---
+    gs_final-eindt = gs_eket-eindt.
+
+* --- Material description ---
+    READ TABLE gt_makt INTO gs_makt WITH KEY matnr = gs_final-matnr.
+    IF sy-subrc = 0.
+      gs_final-maktx = gs_makt-maktx.
+    ENDIF.
+
+* --- Still to be delivered quantity ---
+    CLEAR lv_rec_qty.
+    LOOP AT gt_ekbe INTO gs_ekbe WHERE ebeln = gs_eket-ebeln
+                                   AND ebelp = gs_eket-ebelp.
+      lv_rec_qty = lv_rec_qty + gs_ekbe-menge.
+    ENDLOOP.
+    gs_final-rec_qty  = lv_rec_qty.
+    gs_final-open_qty = gs_final-menge - lv_rec_qty.
+
+    IF gs_final-open_qty <= 0.
+      CONTINUE.               " fully received, nothing pending
+    ENDIF.
+
+    IF gs_final-menge <> 0.
+      gs_final-open_perc = ( gs_final-open_qty / gs_final-menge ) * 100.
+    ENDIF.
+
+* --- Delivery age (days delayed) ---
+    gs_final-deliv_age = sy-datum - gs_final-eindt.
+
+* --- Vendor E-mail lookup chain (per diagram) -----------------------
+*     PO NO -> EKKO(get LIFNR) -> put LIFNR in LFA1(get ADRNR)
+*           -> put ADRNR in ADR6(get SMTP_ADDR = Vendor Email)
+    READ TABLE gt_lfa1 INTO gs_lfa1 WITH KEY lifnr = gs_final-lifnr.        " put LIFNR -> LFA1
+    IF sy-subrc = 0.
+      gs_final-name1 = gs_lfa1-name1.
+      READ TABLE gt_adr6 INTO gs_adr6 WITH KEY addrnumber = gs_lfa1-adrnr. " get ADRNR -> put ADR6
+      IF sy-subrc = 0.
+        gs_final-ven_email = gs_adr6-smtp_addr.                           " get Email Address
+      ENDIF.
+    ENDIF.
+
+* --- Creator E-mail lookup chain (per diagram) -----------------------
+*     PO NO -> EKKO(get ERNAM) -> put ERNAM in USR21(get ADDRNUMBER)
+*           -> put ADDRNUMBER in ADR6(get SMTP_ADDR = Creator Email)
+    READ TABLE gt_usr21 INTO gs_usr21 WITH KEY bname = gs_final-ernam.              " put ERNAM -> USR21
+    IF sy-subrc = 0.
+      READ TABLE gt_adr6_us INTO gs_adr6_us WITH KEY addrnumber = gs_usr21-addrnumber. " get ADDRNUMBER -> put ADR6
+      IF sy-subrc = 0.
+        gs_final-cre_email = gs_adr6_us-smtp_addr.                        " get Email Address
+      ENDIF.
+    ENDIF.
+
+* --- Purchase Officer / Buyer group description ---
+    READ TABLE gt_t024 INTO gs_t024 WITH KEY ekgrp = gs_final-ekgrp.
+    IF sy-subrc = 0.
+      gs_final-po_officer = gs_t024-eknam.
+    ENDIF.
+
+    APPEND gs_final TO gt_final.
+  ENDLOOP.
+
+ENDFORM.                    "PROCESS_DATA
+
+*&---------------------------------------------------------------------*
+*&      Form  FILL_TEST_DATA
+*&---------------------------------------------------------------------*
+*  Populates GT_FINAL with sample rows (bypassing the DB selects) so
+*  the ALV output and e-mail can be verified end-to-end even when no
+*  matching open PO exists yet in the system, or while unit testing
+*  in a sandbox client. Mirrors the exact structure/fields used by
+*  PROCESS_DATA so DISPLAY_ALV / SEND_EMAIL need no changes.
+*&---------------------------------------------------------------------*
+FORM fill_test_data.
+
+  REFRESH gt_final.
+
+  gs_final-ebeln      = '3000000114'.
+  gs_final-ebelp      = '00010'.
+  gs_final-aedat      = '20260204'.
+  gs_final-ekgrp      = '001'.
+  gs_final-po_officer = 'irfan@vit.com'.
+  gs_final-matnr      = 'M101'.
+  gs_final-maktx      = 'Hex Bolt M10x50'.
+  gs_final-werks      = '3000'.
+  gs_final-eindt      = '20260205'.
+  gs_final-menge      = '50'.
+  gs_final-meins      = 'EA'.
+  gs_final-rec_qty    = '15'.
+  gs_final-open_qty   = '35'.
+  gs_final-open_perc  = '70.00'.
+  gs_final-deliv_age  = sy-datum - gs_final-eindt.
+  gs_final-lifnr      = '0000005550'.
+  gs_final-name1      = 'ABC Steel Traders'.
+  gs_final-ven_email  = 'vikas@gmail.com'.
+  gs_final-ernam      = 'EMPLOYEE'.
+  gs_final-cre_email  = 'sadik@gmail.com'.
+  APPEND gs_final TO gt_final.
+  CLEAR gs_final.
+
+  gs_final-ebeln      = '3000000115'.
+  gs_final-ebelp      = '00010'.
+  gs_final-aedat      = '20260210'.
+  gs_final-ekgrp      = '002'.
+  gs_final-po_officer = 'irfan@vit.com'.
+  gs_final-matnr      = 'M102'.
+  gs_final-maktx      = 'Ball Bearing 6205'.
+  gs_final-werks      = '3000'.
+  gs_final-eindt      = '20260220'.
+  gs_final-menge      = '300'.
+  gs_final-meins      = 'EA'.
+  gs_final-rec_qty    = '150'.
+  gs_final-open_qty   = '150'.
+  gs_final-open_perc  = '50.00'.
+  gs_final-deliv_age  = sy-datum - gs_final-eindt.
+  gs_final-lifnr      = '0000005560'.
+  gs_final-name1      = 'XYZ Bearings Pvt Ltd'.
+  gs_final-ven_email  = 'vendor2@gmail.com'.
+  gs_final-ernam      = 'EMPLOYEE2'.
+  gs_final-cre_email  = 'creator2@vit.com'.
+  APPEND gs_final TO gt_final.
+  CLEAR gs_final.
+
+  gt_final2 = gt_final.
+
+ENDFORM.                    "FILL_TEST_DATA
+
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_ALV
+*&---------------------------------------------------------------------*
+FORM display_alv.
+
+  CHECK gt_final IS NOT INITIAL.
+
+  PERFORM build_fieldcat.
+
+  gs_layout-zebra             = 'X'.
+  gs_layout-colwidth_optimize = 'X'.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = sy-repid
+      is_layout          = gs_layout
+      it_fieldcat        = gt_fieldcat
+      i_default          = 'X'
+      i_save             = 'A'
+    TABLES
+      t_outtab            = gt_final
+    EXCEPTIONS
+      program_error       = 1
+      OTHERS               = 2.
+
+ENDFORM.                    "DISPLAY_ALV
+
+*&---------------------------------------------------------------------*
+*&      Form  BUILD_FIELDCAT
+*&---------------------------------------------------------------------*
+FORM build_fieldcat.
+
+  DEFINE add_field.
+    CLEAR gs_fieldcat.
+    gs_fieldcat-fieldname = &1.
+    gs_fieldcat-seltext_m = &2.
+    gs_fieldcat-outputlen = &3.
+    APPEND gs_fieldcat TO gt_fieldcat.
+  END-OF-DEFINITION.
+
+  add_field: 'EBELN'      'PO No.'                    10,
+             'EBELP'      'PO Item'                     6,
+             'AEDAT'      'PO Date'                    10,
+             'EKGRP'      'Purch.Group'                10,
+             'PO_OFFICER' 'Purchase Officer'           30,
+             'MATNR'      'Material'                   18,
+             'MAKTX'      'Material Description'       40,
+             'WERKS'      'Plant'                       6,
+             'EINDT'      'PO Delivery Date'           12,
+             'MENGE'      'Order Qty'                  12,
+             'MEINS'      'UOM'                         5,
+             'OPEN_QTY'   'Still To Be Del. Qty'       15,
+             'OPEN_PERC'  'Still To Be Del. %'         12,
+             'DELIV_AGE'  'Delivery Age (Days)'        10,
+             'LIFNR'      'Vendor'                     10,
+             'NAME1'      'Vendor Name'                30,
+             'VEN_EMAIL'  'Vendor E-mail'              40,
+             'ERNAM'      'Created By'                 12,
+             'CRE_EMAIL'  'Creator E-mail'             40.
+
+ENDFORM.                    "BUILD_FIELDCAT
+
+*&---------------------------------------------------------------------*
+*&      Form  SEND_EMAIL
+*&---------------------------------------------------------------------*
+*  Groups GT_FINAL by PO number and, per PO, sends one e-mail (with an
+*  XLS attachment of the pending line items) to the Vendor, the Buyer
+*  (Purchasing Group) and the PO Creator. Uses the standard
+*  SO_NEW_DOCUMENT_ATT_SEND_API1 function module. SMTP server / node
+*  must be configured by Basis in transaction SCOT.
+*&---------------------------------------------------------------------*
+FORM send_email.
+
+  DATA: it_mailtext TYPE TABLE OF solisti1,
+        wa_mailtext TYPE solisti1,
+        it_bin      TYPE TABLE OF solisti1,
+        wa_bin      TYPE solisti1,
+        ls_doc      TYPE sodocchgi1,
+        lt_pack     TYPE TABLE OF sopcklsti1,
+        ls_pack     TYPE sopcklsti1,
+        lt_receive  TYPE TABLE OF somlreci1,
+        ls_receive  TYPE somlreci1,
+        lv_size     TYPE i,
+        lv_lines    TYPE i,
+        lv_ebeln    TYPE ebeln,
+        lv_ord_qty  TYPE char15,
+        lv_open_qty TYPE char15.
+
+  CHECK gt_final IS NOT INITIAL.
+
+  gt_final2 = gt_final.
+  SORT gt_final BY ebeln.
+  DELETE ADJACENT DUPLICATES FROM gt_final COMPARING ebeln.
+
+  LOOP AT gt_final INTO gs_final.
+
+    lv_ebeln = gs_final-ebeln.
+
+    CLEAR: it_mailtext, it_bin, lt_pack, lt_receive, lv_size.
+    REFRESH: it_mailtext, it_bin, lt_pack, lt_receive.
+
+* --- Mail body (raw text) ---
+    wa_mailtext-line = 'Dear Sir/Madam,'.
+    APPEND wa_mailtext TO it_mailtext.
+
+    wa_mailtext-line = ' '.
+    APPEND wa_mailtext TO it_mailtext.
+
+    CONCATENATE 'List of materials still to be delivered against PO' lv_ebeln
+      INTO wa_mailtext-line SEPARATED BY space.
+    APPEND wa_mailtext TO it_mailtext.
+
+    wa_mailtext-line = ' '.
+    APPEND wa_mailtext TO it_mailtext.
+
+    wa_mailtext-line =
+      'Following materials are still pending for receipt against the ' &&
+      'below-mentioned delivery date. Please inform the present status ' &&
+      'of these materials and confirm the delivery date by return e-mail ' &&
+      'to the concerned Purchase Officer (irfan@vit.com).'.
+    APPEND wa_mailtext TO it_mailtext.
+    APPEND wa_mailtext TO it_bin.
+
+    lv_size = lv_size + strlen( wa_mailtext-line ).
+
+* --- Attachment (tab separated) - all items for this PO ---
+    wa_bin-line = 'PO No.' && cl_abap_char_utilities=>horizontal_tab &&
+                  'Item'   && cl_abap_char_utilities=>horizontal_tab &&
+                  'Material' && cl_abap_char_utilities=>horizontal_tab &&
+                  'Order Qty' && cl_abap_char_utilities=>horizontal_tab &&
+                  'Open Qty' && cl_abap_char_utilities=>horizontal_tab &&
+                  'Delivery Date' && cl_abap_char_utilities=>horizontal_tab &&
+                  'Delivery Age'.
+    APPEND wa_bin TO it_bin.
+
+
+
+    DESCRIBE TABLE it_mailtext LINES lv_lines.
+
+* --- Document properties ---
+    ls_doc-doc_size   = lv_size.
+    ls_doc-obj_langu  = sy-langu.
+    ls_doc-obj_name   = 'ZOPENPO'.
+    ls_doc-obj_descr  = 'Open Purchase Order - Pending Delivery'.
+    ls_doc-sensitivty = 'F'.
+
+* --- Packing list: raw text body ---
+    CLEAR ls_pack.
+    ls_pack-transf_bin = space.
+    ls_pack-head_start  = 1.
+    ls_pack-head_num    = 0.
+    ls_pack-body_start  = 1.
+    ls_pack-body_num    = lv_lines.
+    ls_pack-doc_type    = 'RAW'.
+    APPEND ls_pack TO lt_pack.
+
+* --- Packing list: XLS attachment ---
+    DESCRIBE TABLE it_bin LINES lv_lines.
+    CLEAR ls_pack.
+    ls_pack-transf_bin  = 'X'.
+    ls_pack-head_start  = 1.
+    ls_pack-head_num    = 1.
+    ls_pack-body_start  = 1.
+    ls_pack-body_num    = lv_lines.
+    ls_pack-doc_type    = 'XLS'.
+    ls_pack-obj_name    = 'ZOPENPO'.
+    ls_pack-obj_descr   = 'Open PO Items'.
+    APPEND ls_pack TO lt_pack.
+
+* --- Receivers: Vendor, Buyer, Creator ---
+    IF gs_final-ven_email IS NOT INITIAL.
+      CLEAR ls_receive.
+      ls_receive-receiver = gs_final-ven_email.
+      ls_receive-rec_type = 'U'.
+      ls_receive-com_type = 'INT'.
+      APPEND ls_receive TO lt_receive.
+    ENDIF.
+
+    IF gs_final-po_officer IS NOT INITIAL.
+      CLEAR ls_receive.
+      ls_receive-receiver = gs_final-po_officer.
+      ls_receive-rec_type = 'U'.
+      ls_receive-com_type = 'INT'.
+      APPEND ls_receive TO lt_receive.
+    ENDIF.
+
+    IF gs_final-cre_email IS NOT INITIAL.
+      CLEAR ls_receive.
+      ls_receive-receiver = gs_final-cre_email.
+      ls_receive-rec_type = 'U'.
+      ls_receive-com_type = 'INT'.
+      APPEND ls_receive TO lt_receive.
+    ENDIF.
+
+    CHECK lt_receive IS NOT INITIAL.
+
+    CALL FUNCTION 'SO_NEW_DOCUMENT_ATT_SEND_API1'
+      EXPORTING
+        document_data              = ls_doc
+      TABLES
+        packing_list                = lt_pack
+        contents_bin                 = it_bin
+        contents_txt                 = it_mailtext
+        receivers                    = lt_receive
+      EXCEPTIONS
+        too_many_receivers           = 1
+        document_not_sent            = 2
+        document_type_not_exist      = 3
+        operation_no_authorization   = 4
+        parameter_error              = 5
+        x_error                      = 6
+        enqueue_error                = 7
+        OTHERS                       = 8.
+
+    IF sy-subrc = 0.
+      COMMIT WORK.
+    ENDIF.
+
+  ENDLOOP.
+
+ENDFORM.                    "SEND_EMAIL

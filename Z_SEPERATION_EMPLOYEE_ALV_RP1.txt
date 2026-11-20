@@ -1,0 +1,445 @@
+REPORT z_seperation_employee_alv_rp.
+
+*&---------------------------------------------------------------------*
+*& Tables used
+*&---------------------------------------------------------------------*
+TABLES: pa0000, pa0001, pa0002, pa0041, pa0105, t001p.
+
+*&---------------------------------------------------------------------*
+*& Type Declarations
+*&---------------------------------------------------------------------*
+TYPES: BEGIN OF ty_pa0000,
+         pernr TYPE pa0000-pernr,
+         stat2 TYPE pa0000-stat2,
+         begda TYPE pa0000-begda,
+         endda TYPE pa0000-endda,
+         massn TYPE pa0000-massn,
+         massg TYPE pa0000-massg,
+         uname TYPE pa0000-uname,
+         aedtm TYPE pa0000-aedtm,
+       END OF ty_pa0000.
+
+TYPES: BEGIN OF ty_pa0001,
+         pernr TYPE pa0001-pernr,
+         bukrs TYPE pa0001-bukrs,
+         btrtl TYPE pa0001-btrtl,
+         persk TYPE pa0001-persk,
+         plans TYPE pa0001-plans,
+         begda TYPE pa0001-begda,
+         endda TYPE pa0001-endda,
+*        Custom appended field for Band (maintained via PA0001 append/BAdI)
+       END OF ty_pa0001.
+
+TYPES: BEGIN OF ty_pa0002,
+         pernr TYPE pa0002-pernr,
+         begda TYPE pa0002-begda,
+         endda TYPE pa0002-endda,
+         gesch TYPE pa0002-gesch,
+         nachn TYPE pa0002-nachn,
+         nach2 TYPE pa0002-nach2,
+         vorna TYPE pa0002-vorna,
+       END OF ty_pa0002.
+
+TYPES: BEGIN OF ty_pa0041,
+         pernr TYPE pa0041-pernr,
+         dar01 TYPE pa0041-dar01,
+         dar02 TYPE pa0041-dar02,
+         dar03 TYPE pa0041-dar03,
+         dat01 TYPE pa0041-dat01,
+         dat02 TYPE pa0041-dat02,
+         dat03 TYPE pa0041-dat03,
+       END OF ty_pa0041.
+
+TYPES: BEGIN OF ty_pa0105,
+         pernr      TYPE pa0105-pernr,
+         subty      TYPE pa0105-subty,
+         usrid_long TYPE pa0105-usrid_long,
+       END OF ty_pa0105.
+
+TYPES: BEGIN OF ty_t001p,
+         btrtl TYPE t001p-btrtl,
+         btext TYPE t001p-btext,
+       END OF ty_t001p.
+
+TYPES: BEGIN OF ty_hrp1001,
+         objid TYPE hrp1001-objid,
+         sobid TYPE hrp1001-sobid,
+         plvar TYPE hrp1001-plvar,
+         otype TYPE hrp1001-otype,
+         sclas TYPE hrp1001-sclas,
+         relat TYPE hrp1001-relat,
+         rsign TYPE hrp1001-rsign,
+         begda TYPE hrp1001-begda,
+         endda TYPE hrp1001-endda,
+       END OF ty_hrp1001.
+
+TYPES: BEGIN OF ty_final,
+         pernr        TYPE pa0000-pernr,          " Employee Number
+         ename        TYPE string,                " First + Last Name
+         bukrs        TYPE pa0001-bukrs,           " Company Code
+         gender       TYPE string,                 " Gender
+         seat_loc     TYPE t001p-btext,             " Seating Location
+         mgr_pernr    TYPE pa0001-pernr,            " Reporting Manager Pernr
+         mgr_name     TYPE string,                  " Reporting Manager Name
+         doj          TYPE pa0041-dat01,            " Date of Joining
+         grade        TYPE pa0001-persk,            " Grade
+         lwd          TYPE d,                       " Last Working Date
+         sep_date     TYPE pa0000-begda,            " SAP Separation Date
+         reason       TYPE string,                  " Reason for Separation
+         private_mail TYPE pa0105-usrid_long,        " Private Mail ID
+         changed_on   TYPE pa0000-aedtm,             " Latest Separation - Changed On
+         changed_by   TYPE pa0000-uname,             " Latest Separation - Changed By
+       END OF ty_final.
+
+*&---------------------------------------------------------------------*
+*& Internal Tables & Work Areas
+*&---------------------------------------------------------------------*
+DATA: it_pa0000 TYPE TABLE OF ty_pa0000,
+      wa_pa0000 TYPE ty_pa0000,
+
+      it_pa0001 TYPE TABLE OF ty_pa0001,
+      wa_pa0001 TYPE ty_pa0001,
+
+      it_pa0002 TYPE TABLE OF ty_pa0002,
+      wa_pa0002 TYPE ty_pa0002,
+
+      it_pa0041 TYPE TABLE OF ty_pa0041,
+      wa_pa0041 TYPE ty_pa0041,
+
+      it_pa0105 TYPE TABLE OF ty_pa0105,
+      wa_pa0105 TYPE ty_pa0105,
+
+      it_t001p  TYPE TABLE OF ty_t001p,
+      wa_t001p  TYPE ty_t001p,
+
+      wa_hrp1001 TYPE ty_hrp1001,
+
+      it_final  TYPE TABLE OF ty_final,
+      wa_final  TYPE ty_final.
+
+DATA: lv_sobid TYPE hrp1001-sobid,
+      lv_last_date TYPE sy-datum VALUE '99991231'.
+
+*&---------------------------------------------------------------------*
+*& Selection Screen  (matches the layout in the provided screenshot)
+*&---------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+
+SELECT-OPTIONS: s_date   FOR pa0000-begda OBLIGATORY,          " Period-(Start Date & End Date)
+                s_pernr  FOR pa0000-pernr,                     " Employee No
+                s_bukrs  FOR pa0001-bukrs,                     " Company Code
+                s_subare FOR pa0001-btrtl.                     " Personnel Subarea
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+*&---------------------------------------------------------------------*
+*& TEXT-001 : 'Input Selection'
+*&---------------------------------------------------------------------*
+INITIALIZATION.
+
+
+*&---------------------------------------------------------------------*
+*& START-OF-SELECTION
+*&---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  PERFORM get_data.
+  PERFORM process_data.
+  PERFORM display_data.
+
+*&---------------------------------------------------------------------*
+*& Form GET_DATA
+*&---------------------------------------------------------------------*
+FORM get_data.
+
+  " -------------------- PA0000 : Actions --------------------
+  REFRESH it_pa0000.
+  SELECT pernr stat2 begda endda massn massg uname aedtm
+    FROM pa0000
+    INTO TABLE it_pa0000
+    WHERE pernr  IN s_pernr
+      AND stat2  NE '3'                       " Not Active
+      AND begda  BETWEEN s_date-low AND s_date-high
+      AND endda  LE lv_last_date.
+
+  IF it_pa0000[] IS INITIAL.
+    MESSAGE 'No separated employees found for the given selection' TYPE 'S' DISPLAY LIKE 'E'.
+    STOP.
+  ENDIF.
+
+  " -------------------- PA0001 : Org. Assignment --------------------
+  REFRESH it_pa0001.
+  SELECT pernr bukrs btrtl begda endda persk plans
+    FROM pa0001
+    INTO TABLE it_pa0001
+    FOR ALL ENTRIES IN it_pa0000
+    WHERE pernr = it_pa0000-pernr
+      AND bukrs  IN s_bukrs
+      AND btrtl  IN s_subare
+      AND endda  = lv_last_date.
+
+  SORT it_pa0001 BY pernr.
+  DELETE ADJACENT DUPLICATES FROM it_pa0001 COMPARING pernr.
+
+  " -------------------- PA0002 : Personal Data --------------------
+  REFRESH it_pa0002.
+  SELECT pernr begda endda gesch nach2 nachn vorna
+    FROM pa0002
+    INTO TABLE it_pa0002
+    FOR ALL ENTRIES IN it_pa0000
+    WHERE pernr = it_pa0000-pernr.
+
+  SORT it_pa0002 BY pernr.
+
+  " -------------------- PA0041 : Date Specifications --------------------
+  REFRESH it_pa0041.
+  SELECT pernr dar01 dar02 dar03 dat01 dat02 dat03
+    FROM pa0041
+    INTO TABLE it_pa0041
+    FOR ALL ENTRIES IN it_pa0000
+    WHERE pernr = it_pa0000-pernr.
+
+  SORT it_pa0041 BY pernr.
+
+  " -------------------- PA0105 : Communication (Private mail) --------------------
+  REFRESH it_pa0105.
+  SELECT pernr subty usrid_long
+    FROM pa0105
+    INTO TABLE it_pa0105
+    FOR ALL ENTRIES IN it_pa0000
+    WHERE pernr = it_pa0000-pernr
+      AND subty = '0030'.
+
+  SORT it_pa0105 BY pernr.
+
+  " -------------------- T001P : Personnel Subarea Text --------------------
+  REFRESH it_t001p.
+  IF it_pa0001[] IS NOT INITIAL.
+    SELECT btrtl btext
+      FROM t001p
+      INTO TABLE it_t001p
+      FOR ALL ENTRIES IN it_pa0001
+      WHERE btrtl = it_pa0001-btrtl.
+  ENDIF.
+
+  SORT it_t001p BY btrtl.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form PROCESS_DATA
+*&---------------------------------------------------------------------*
+FORM process_data.
+
+  REFRESH it_final.
+
+  LOOP AT it_pa0000 INTO wa_pa0000.
+
+    CLEAR wa_final.
+
+    wa_final-pernr      = wa_pa0000-pernr.
+    wa_final-changed_by = wa_pa0000-uname.       " Latest separation action changed by
+    wa_final-changed_on = wa_pa0000-aedtm.       " Changed on
+
+    " ---- SAP Separation Date : from action type = Termination/Separation ('AC') ----
+    IF wa_pa0000-massn = 'AC'.
+      wa_final-sep_date = wa_pa0000-begda.
+    ELSE.
+      wa_final-sep_date = wa_pa0000-begda.
+    ENDIF.
+
+    " ---- Last Working Date = Separation Date - 1 ----
+    wa_final-lwd = wa_final-sep_date - 1.
+
+    " ---- Reason for Action (MASSG) ----
+    CASE wa_pa0000-massg.
+      WHEN '00'. wa_final-reason = 'Abscond'.
+      WHEN '01'. wa_final-reason = 'Resignation'.
+      WHEN '02'. wa_final-reason = 'Termination'.
+      WHEN '03'. wa_final-reason = 'Retirement'.
+      WHEN '04'. wa_final-reason = 'Permanent Disablement'.
+      WHEN '05'. wa_final-reason = 'Death'.
+      WHEN '06'. wa_final-reason = 'VRS'.
+      WHEN '07'. wa_final-reason = 'Completion of Training Period'.
+      WHEN '08'. wa_final-reason = 'Transfer to Group Company'.
+      WHEN 'E2'. wa_final-reason = 'Health Problems'.
+      WHEN 'E4'. wa_final-reason = 'Career Opportunities'.
+      WHEN OTHERS. wa_final-reason = wa_pa0000-massg.
+    ENDCASE.
+
+    " ---- Name & Gender from PA0002 ----
+    READ TABLE it_pa0002 INTO wa_pa0002 WITH KEY pernr = wa_pa0000-pernr BINARY SEARCH.
+    IF sy-subrc = 0.
+      CONCATENATE wa_pa0002-vorna wa_pa0002-nach2 wa_pa0002-nachn
+             INTO wa_final-ename SEPARATED BY space.
+      CONDENSE wa_final-ename.
+
+      CASE wa_pa0002-gesch.
+        WHEN '1'. wa_final-gender = 'Male'.
+        WHEN '2'. wa_final-gender = 'Female'.
+        WHEN OTHERS. wa_final-gender = 'Other'.
+      ENDCASE.
+    ENDIF.
+
+    " ---- Company Code, Grade, Band, Seating Location from PA0001 / T001P ----
+    READ TABLE it_pa0001 INTO wa_pa0001 WITH KEY pernr = wa_pa0000-pernr BINARY SEARCH.
+    IF sy-subrc = 0.
+      wa_final-bukrs = wa_pa0001-bukrs.
+      wa_final-grade = wa_pa0001-persk.
+
+      READ TABLE it_t001p INTO wa_t001p WITH KEY btrtl = wa_pa0001-btrtl BINARY SEARCH.
+      IF sy-subrc = 0.
+        wa_final-seat_loc = wa_t001p-btext.
+      ENDIF.
+
+      " ---- Reporting / Line Manager via HRP1001 ----
+      PERFORM get_manager USING wa_pa0001-plans
+                        CHANGING wa_final-mgr_pernr
+                                 wa_final-mgr_name.
+    ENDIF.
+
+    " ---- Date of Joining from PA0041 ----
+    READ TABLE it_pa0041 INTO wa_pa0041 WITH KEY pernr = wa_pa0000-pernr BINARY SEARCH.
+    IF sy-subrc = 0.
+      IF wa_pa0041-dar01 = '01'.
+        wa_final-doj = wa_pa0041-dat01.
+      ELSEIF wa_pa0041-dar02 = 'VA'.
+        wa_final-doj = wa_pa0041-dat02.
+      ELSEIF wa_pa0041-dar03 = 'VA'.
+        wa_final-doj = wa_pa0041-dat03.
+      ENDIF.
+    ENDIF.
+
+    " ---- Private Mail ID from PA0105 (Subtype 0030) ----
+    READ TABLE it_pa0105 INTO wa_pa0105 WITH KEY pernr = wa_pa0000-pernr BINARY SEARCH.
+    IF sy-subrc = 0.
+      wa_final-private_mail = wa_pa0105-usrid_long.
+    ENDIF.
+
+    APPEND wa_final TO it_final.
+
+  ENDLOOP.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form GET_MANAGER
+*& Logic: PERNR -> PA0001-PLANS (Position) -> HRP1001 (Reports to,
+*&        relat=002, sclas=S) -> Manager Position -> HRP1001 (Holder,
+*&        relat=008, sclas=P) -> Manager PERNR -> PA0002 (Manager Name)
+*&---------------------------------------------------------------------*
+FORM get_manager USING    pu_plans TYPE pa0001-plans
+                  CHANGING pc_mgr_pernr TYPE pa0001-pernr
+                           pc_mgr_name  TYPE string.
+
+  DATA: lv_mgr_pernr TYPE pa0002-pernr,
+        lwa_pa0002   TYPE ty_pa0002.
+
+  CLEAR: pc_mgr_pernr, pc_mgr_name, lv_sobid, wa_hrp1001.
+
+  IF pu_plans IS INITIAL.
+    RETURN.
+  ENDIF.
+
+  " Step 1: Position of employee reports to which manager Position
+  SELECT SINGLE objid sobid plvar otype sclas relat rsign begda endda
+    FROM hrp1001
+    INTO wa_hrp1001
+    WHERE plvar = '01'
+      AND objid = pu_plans
+      AND rsign = 'A'
+      AND sclas = 'S'
+      AND relat = '002'
+      AND begda LE sy-datum
+      AND endda GE sy-datum.
+
+  IF sy-subrc = 0.
+    lv_sobid = wa_hrp1001-sobid.
+    CLEAR wa_hrp1001.
+
+    " Step 2: Get PERNR of the Position holder (Manager)
+    SELECT SINGLE objid sobid plvar otype sclas relat rsign begda endda
+      FROM hrp1001
+      INTO wa_hrp1001
+      WHERE plvar = '01'
+        AND objid = lv_sobid
+        AND otype = 'S'
+        AND rsign = 'A'
+        AND sclas = 'P'
+        AND relat = '008'
+        AND begda LE sy-datum
+        AND endda GE sy-datum.
+
+    IF sy-subrc = 0.
+      lv_mgr_pernr   = wa_hrp1001-sobid.
+      pc_mgr_pernr   = lv_mgr_pernr.
+
+      " Fetch manager's name from PA0002
+      SELECT SINGLE pernr vorna nach2 nachn
+        FROM pa0002
+        INTO CORRESPONDING FIELDS OF lwa_pa0002
+        WHERE pernr = lv_mgr_pernr.
+
+      IF sy-subrc = 0.
+        CONCATENATE lwa_pa0002-vorna lwa_pa0002-nach2 lwa_pa0002-nachn
+               INTO pc_mgr_name SEPARATED BY space.
+        CONDENSE pc_mgr_name.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form DISPLAY_DATA  (Classic ALV Grid output)
+*&---------------------------------------------------------------------*
+FORM display_data.
+
+  DATA: lt_fieldcat TYPE slis_t_fieldcat_alv,
+        ls_fieldcat TYPE slis_fieldcat_alv,
+        ls_layout   TYPE slis_layout_alv.
+
+  DEFINE add_field.
+    CLEAR ls_fieldcat.
+    ls_fieldcat-fieldname = &1.
+    ls_fieldcat-seltext_m = &2.
+    ls_fieldcat-outputlen = &3.
+    APPEND ls_fieldcat TO lt_fieldcat.
+  END-OF-DEFINITION.
+
+  add_field: 'PERNR'        'Employee No'            10,
+             'ENAME'        'Employee Name'          30,
+             'BUKRS'        'Company Code'           10,
+             'GENDER'       'Gender'                 10,
+             'SEAT_LOC'     'Seating Location'       25,
+             'MGR_PERNR'    'Reporting Manager No'   15,
+             'MGR_NAME'     'Reporting Manager Name' 30,
+             'DOJ'          'Date of Joining'        12,
+             'GRADE'        'Grade'                  10,
+             'BAND'         'Band'                   8,
+             'LWD'          'Last Working Date'      14,
+             'SEP_DATE'     'SAP Separation Date'    14,
+             'REASON'       'Reason'                 25,
+             'PRIVATE_MAIL' 'Private Mail ID'         35,
+             'CHANGED_ON'   'Changed On'              12,
+             'CHANGED_BY'   'Changed By (Latest Sep. Action)' 20.
+
+  ls_layout-zebra             = 'X'.
+  ls_layout-colwidth_optimize = 'X'.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = sy-repid
+      is_layout          = ls_layout
+      it_fieldcat        = lt_fieldcat
+    TABLES
+      t_outtab           = it_final
+    EXCEPTIONS
+      program_error       = 1
+      OTHERS              = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE 'Error displaying ALV output' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.

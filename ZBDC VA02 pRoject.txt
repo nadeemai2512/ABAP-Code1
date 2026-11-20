@@ -1,0 +1,142 @@
+REPORT YBDC_VA02
+       NO STANDARD PAGE HEADING LINE-SIZE 255.
+
+*TO CREATE LINE TYPE
+TYPES:BEGIN OF LINE_TYPE,
+        VBELN     TYPE VBELN_VA,
+        BSTKD     TYPE BSTKD,
+        BSTDK(10),
+        ZTERM     TYPE DZTERM,
+      END OF LINE_TYPE.
+DATA:M(2),D(2),Y(4),DATE1 LIKE SY-DATUM,F_DATE(10).
+
+*tO CREATE AN INTERNAL TABLE IT_SO OF STRUCTURE-LINE_TYPE
+DATA IT_SO TYPE TABLE OF LINE_TYPE.
+*TO CREATE WORK AREA WA_SO TYPE -LINE_TYPE
+DATA WA_SO TYPE LINE_TYPE.
+* to create an internal table it_raw of table type truxs_t_text_data
+DATA IT_RAW TYPE TRUXS_T_TEXT_DATA.
+*  TO CREATE AN INTERNAL TABLE IT_BDCDATA OF STRUCTURE BDCDATA
+DATA IT_BDCDATA TYPE TABLE OF BDCDATA.
+*  TO CREATE WORK AREA WA_BDCDATA OF STRUCTURE BDCDATA
+DATA WA_BDCDATA TYPE BDCDATA.
+*TO CREATE VARIABLES
+DATA V_DATE LIKE SY-DATUM.
+* INPUT FIELD TO ENTER FLAT FILE ALONG WITH PATH
+PARAMETERS P_FILE LIKE RLGRAP-FILENAME.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_FILE.
+  PERFORM BROWSE_FILE.
+
+START-OF-SELECTION.
+  PERFORM UPLOAD_EXCEL_FILE.
+  PERFORM MAP_DATA.
+
+FORM BROWSE_FILE .
+  CALL FUNCTION 'F4_FILENAME'
+    IMPORTING
+      FILE_NAME = P_FILE.
+  .
+ENDFORM.
+
+FORM UPLOAD_EXCEL_FILE .
+* TEXT_CONVERT_XLS_TO_SAP: THIS FUNCTION MODULE IS USED TO UPLOED EXCEL FILE PRESENT ON PRESENTATION SERVERT TO DESKTOP TO AN INTERNAL TABLE
+  CALL FUNCTION 'TEXT_CONVERT_XLS_TO_SAP'
+    EXPORTING
+*     I_FIELD_SEPERATOR    =
+*     I_LINE_HEADER        = 'X'
+      I_TAB_RAW_DATA       = IT_RAW
+      I_FILENAME           = P_FILE
+    TABLES
+      I_TAB_CONVERTED_DATA = IT_SO
+    EXCEPTIONS
+      CONVERSION_FAILED    = 1
+      OTHERS               = 2.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'ERROR WHILE UUPLODING EXCEL FILE' TYPE 'I'.
+  ELSE.
+*   LOOP AT IT_MAT.
+*     WRITE:/ IT_MAT-MATNR,
+*             IT_MAT-MTART,
+*             IT_MAT-MBRSH,
+*             IT_MAT-MATKL,
+*             IT_MAT-MEINS,
+*             IT_MAT-MAKTX.
+*     ENDLOOP.
+  ENDIF.
+ENDFORM.
+
+
+
+
+*&---------------------------------------------------------------------*
+*&      Form  MAP_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM MAP_DATA .
+  LOOP AT IT_SO INTO WA_SO.
+
+    D = WA_SO-BSTDK+0(2).
+    M = WA_SO-BSTDK+3(2).
+    Y = WA_SO-BSTDK+6(4).
+    CONCATENATE Y M D INTO DATE1.
+
+*    WRITE DATE1.
+    PERFORM BDC_DYNPRO      USING 'SAPMV45A' '0102'.
+    PERFORM BDC_FIELD       USING 'BDC_CURSOR'
+                                  'VBAK-VBELN'.
+    PERFORM BDC_FIELD       USING 'BDC_OKCODE'
+                                  '/00'.
+    PERFORM BDC_FIELD       USING 'VBAK-VBELN'
+                                  WA_SO-VBELN."'4971'.
+    PERFORM BDC_DYNPRO      USING 'SAPMV45A' '4001'.
+    PERFORM BDC_FIELD       USING 'BDC_OKCODE'
+                                  '=SICH'.
+    PERFORM BDC_FIELD       USING 'VBKD-BSTKD'
+                                  WA_SO-BSTKD."'p0_101'.
+    WRITE DATE1 TO F_DATE.
+    PERFORM BDC_FIELD       USING 'VBKD-BSTDK'
+                                  F_DATE ."WA_SO-BSTDK."'04.07.2026'.
+*  PERFORM BDC_FIELD       USING 'KUWEV-KUNNR'
+*                                '1001'.
+*  PERFORM BDC_FIELD       USING 'BDC_CURSOR'
+*                                'VBKD-ZTERM'.
+*  PERFORM BDC_FIELD       USING 'RV45A-KETDAT'
+*                                '09.01.1997'.
+*  PERFORM BDC_FIELD       USING 'RV45A-KPRGBZ'
+*                                'D'.
+*  PERFORM BDC_FIELD       USING 'VBKD-PRSDT'
+*                                '07.01.1997'.
+    PERFORM BDC_FIELD       USING 'VBKD-ZTERM'
+                                  WA_SO-ZTERM."'ZB02'.
+    CALL TRANSACTION 'VA02' USING IT_BDCDATA MODE 'N' UPDATE 'A' .
+    CLEAR IT_BDCDATA.
+  ENDLOOP.
+ENDFORM.
+
+FORM BDC_DYNPRO  USING    PROG SCRNO.
+  CLEAR WA_BDCDATA.
+  WA_BDCDATA-PROGRAM = PROG.
+  WA_BDCDATA-DYNPRO = SCRNO.
+  WA_BDCDATA-DYNBEGIN = 'X'.
+  APPEND WA_BDCDATA TO IT_BDCDATA.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SUB2
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_0146   text
+*      -->P_IT_MAT_MATNR  text
+*----------------------------------------------------------------------*
+FORM BDC_FIELD USING    FNAME FVALUE.
+  CLEAR WA_BDCDATA.
+  WA_BDCDATA-FNAM = FNAME.
+  WA_BDCDATA-FVAL = FVALUE.
+  APPEND WA_BDCDATA TO IT_BDCDATA.
+ENDFORM.

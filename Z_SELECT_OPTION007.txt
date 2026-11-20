@@ -1,0 +1,49 @@
+REPORT Z_SELECT_OPTION007.
+
+
+WRITE: / '========== EX-1: Basic PARAMETERS Demo =========='.
+
+PARAMETER A TYPE I.
+WRITE A.
+
+PARAMETER B TYPE I DEFAULT 22.
+WRITE: / B.
+
+PARAMETERS: C TYPE I,
+            D TYPE I,
+            E(10) TYPE C.
+
+WRITE: / C, D, E.
+
+SKIP 2.
+
+*======================================================================*
+* EX-2: Checkbox and Radio Buttons Demo
+*======================================================================*
+
+WRITE: / '========== EX-2: Checkbox and Radio Buttons Demo =========='.
+
+PARAMETER A_CHECK AS CHECKBOX.
+
+PARAMETERS: C_RADIO RADIOBUTTON GROUP GR1,
+            D_RADIO RADIOBUTTON GROUP GR1,
+            E_RADIO RADIOBUTTON GROUP GR1.
+
+SKIP 2.
+
+*======================================================================*
+* EX-3: SELECT-OPTIONS with MARA table Demo
+*======================================================================*
+
+WRITE: / '========== EX-3: SELECT-OPTIONS with MARA Table =========='.
+
+TABLES: MARA.
+
+SELECT-OPTIONS: S_MATNR FOR MARA-MATNR.
+
+SELECT * FROM MARA INTO MARA
+  WHERE MATNR IN S_MATNR.
+
+  WRITE: / MARA-MATNR, MARA-MTART, MARA-MATKL.
+
+ENDSELECT.

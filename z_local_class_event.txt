@@ -1,0 +1,74 @@
+*&---------------------------------------------------------------------*
+*& Report Z_LOCAL_CLASS_EVENT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_LOCAL_CLASS_EVENT.
+
+CLASS lcl_employee DEFINITION.
+
+  PUBLIC SECTION.
+
+    "Declare Event
+    EVENTS employee_created
+      EXPORTING
+        VALUE(iv_name) TYPE string.
+
+    METHODS:
+      create_employee
+        IMPORTING
+          iv_name TYPE string.
+
+ENDCLASS.
+CLASS lcl_employee IMPLEMENTATION.
+
+  METHOD create_employee.
+
+    WRITE: / 'Employee created:', iv_name.
+
+    "Raise Event
+    RAISE EVENT employee_created
+      EXPORTING
+        iv_name = iv_name.
+
+  ENDMETHOD.
+
+ENDCLASS.
+CLASS lcl_event_handler DEFINITION.
+
+  PUBLIC SECTION.
+
+    METHODS:
+      on_employee_created
+        FOR EVENT employee_created OF lcl_employee
+        IMPORTING
+          iv_name.
+
+ENDCLASS.
+CLASS lcl_event_handler IMPLEMENTATION.
+
+  METHOD on_employee_created.
+
+    WRITE: / 'Event triggered for employee:', iv_name.
+
+  ENDMETHOD.
+
+ENDCLASS.
+START-OF-SELECTION.
+
+  DATA:
+    lo_employee TYPE REF TO lcl_employee,
+    lo_handler  TYPE REF TO lcl_event_handler.
+
+  "Create objects
+  CREATE OBJECT lo_employee.
+  CREATE OBJECT lo_handler.
+
+  "Register event handler
+  SET HANDLER lo_handler->on_employee_created
+              FOR lo_employee.
+
+  "Call method
+  lo_employee->create_employee(
+    iv_name = 'Nadeem'
+  ).

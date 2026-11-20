@@ -1,0 +1,40 @@
+REPORT zabbas_newsyntax3.
+
+SELECT *
+  FROM mara
+  INTO TABLE @DATA(itab)
+  UP TO 100 ROWS.
+
+" Read table with index
+DATA(wa) = itab[ 14 ].
+
+WRITE: / wa-matnr,
+         sy-uname,
+         wa-mtart,
+         wa-meins.
+ULINE.
+
+" Read table with key
+wa = itab[ matnr = '000000000000000058' ].
+
+WRITE: / wa-matnr,
+         sy-uname,
+         wa-mtart,
+         wa-meins.
+ULINE.
+
+" Get index
+DATA(index) = line_index( itab[ mtart = 'ROH'
+                                mbrsh = 'M' ] ).
+
+WRITE: / 'INDEX IS', index.
+ULINE.
+
+" Check existence
+IF line_exists( itab[ mtart = 'STEM' ] ).
+  WRITE: / 'MATERIAL TYPE EXISTS'.
+ELSE.
+  WRITE: / 'MATERIAL TYPE NOT FOUND'.
+ENDIF.
+
+ULINE.

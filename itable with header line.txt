@@ -1,0 +1,506 @@
+REPORT Y_INTERNALTABLE_HEADERLINE.
+
+
+*---------------------------------------------------------------------*
+* TYPE DECLARATION
+*---------------------------------------------------------------------*
+TYPES: BEGIN OF ty_employee,
+         emp_id    TYPE numc3,
+         emp_name  TYPE char25,
+         emp_city  TYPE char15,
+         emp_sal   TYPE i,
+         emp_dept  TYPE char10,
+       END OF ty_employee.
+
+*---------------------------------------------------------------------*
+* INTERNAL TABLE WITH HEADER LINE
+*---------------------------------------------------------------------*
+DATA: gt_employee TYPE TABLE OF ty_employee WITH HEADER LINE,
+      gt_backup   TYPE TABLE OF ty_employee WITH HEADER LINE.
+
+DATA: lv_lines      TYPE i,
+      lv_total_sal  TYPE i,
+      lv_count      TYPE i.
+
+*---------------------------------------------------------------------*
+* 1. APPEND OPERATION - Adding records to internal table
+*---------------------------------------------------------------------*
+CLEAR gt_employee.
+gt_employee-emp_id = 101.
+gt_employee-emp_name = 'Amit Sharma'.
+gt_employee-emp_city = 'Mumbai'.
+gt_employee-emp_sal = 50000.
+gt_employee-emp_dept = 'IT'.
+APPEND gt_employee.
+
+gt_employee-emp_id = 102.
+gt_employee-emp_name = 'Priya Patel'.
+gt_employee-emp_city = 'Delhi'.
+gt_employee-emp_sal = 45000.
+gt_employee-emp_dept = 'HR'.
+APPEND gt_employee.
+
+gt_employee-emp_id = 103.
+gt_employee-emp_name = 'Rajesh Kumar'.
+gt_employee-emp_city = 'Bangalore'.
+gt_employee-emp_sal = 55000.
+gt_employee-emp_dept = 'IT'.
+APPEND gt_employee.
+
+gt_employee-emp_id = 104.
+gt_employee-emp_name = 'Sneha Reddy'.
+gt_employee-emp_city = 'Hyderabad'.
+gt_employee-emp_sal = 48000.
+gt_employee-emp_dept = 'Finance'.
+APPEND gt_employee.
+
+gt_employee-emp_id = 105.
+gt_employee-emp_name = 'Vikram Singh'.
+gt_employee-emp_city = 'Chennai'.
+gt_employee-emp_sal = 52000.
+gt_employee-emp_dept = 'IT'.
+APPEND gt_employee.
+
+gt_employee-emp_id = 106.
+gt_employee-emp_name = 'Neha Gupta'.
+gt_employee-emp_city = 'Pune'.
+gt_employee-emp_sal = 42000.
+gt_employee-emp_dept = 'HR'.
+APPEND gt_employee.
+
+gt_employee-emp_id = 107.
+gt_employee-emp_name = 'Rahul Verma'.
+gt_employee-emp_city = 'Kolkata'.
+gt_employee-emp_sal = 38000.
+gt_employee-emp_dept = 'Sales'.
+APPEND gt_employee.
+
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 1. INITIAL TABLE AFTER APPEND (7 Records) =========='.
+FORMAT COLOR OFF.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'ID', 'NAME', 'CITY', 'SALARY', 'DEPT'.
+FORMAT COLOR OFF.
+LOOP AT gt_employee.
+  IF sy-tabix MOD 2 = 0.
+    FORMAT COLOR COL_KEY.
+  ELSE.
+    FORMAT COLOR COL_NORMAL.
+  ENDIF.
+  WRITE: / gt_employee-emp_id,
+           gt_employee-emp_name,
+           gt_employee-emp_city,
+           gt_employee-emp_sal,
+           gt_employee-emp_dept.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 2. INSERT OPERATION - Inserting records at specific positions
+*---------------------------------------------------------------------*
+CLEAR gt_employee.
+gt_employee-emp_id = 108.
+gt_employee-emp_name = 'Deepak Joshi'.
+gt_employee-emp_city = 'Jaipur'.
+gt_employee-emp_sal = 41000.
+gt_employee-emp_dept = 'Sales'.
+INSERT gt_employee INTO gt_employee INDEX 3.
+
+gt_employee-emp_id = 109.
+gt_employee-emp_name = 'Kavita Nair'.
+gt_employee-emp_city = 'Ahmedabad'.
+gt_employee-emp_sal = 46000.
+gt_employee-emp_dept = 'IT'.
+INSERT gt_employee INTO gt_employee INDEX 6.
+
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 2. AFTER INSERT OPERATION (Added at Index 3 & 6) =========='.
+FORMAT COLOR OFF.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'INDEX', 'ID', 'NAME', 'SALARY', 'DEPT'.
+FORMAT COLOR OFF.
+LOOP AT gt_employee.
+  IF gt_employee-emp_id = 108 OR gt_employee-emp_id = 109.
+    FORMAT COLOR COL_POSITIVE.
+  ELSEIF sy-tabix MOD 2 = 0.
+    FORMAT COLOR COL_KEY.
+  ELSE.
+    FORMAT COLOR COL_NORMAL.
+  ENDIF.
+  WRITE: / sy-tabix, gt_employee-emp_id, gt_employee-emp_name,
+           gt_employee-emp_sal, gt_employee-emp_dept.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 3. COLLECT OPERATION - Summing salaries by department
+*---------------------------------------------------------------------*
+DATA: lt_dept_sum TYPE TABLE OF ty_employee WITH HEADER LINE.
+REFRESH lt_dept_sum.
+
+LOOP AT gt_employee.
+  lt_dept_sum-emp_dept = gt_employee-emp_dept.
+  lt_dept_sum-emp_sal = gt_employee-emp_sal.
+  COLLECT lt_dept_sum.
+ENDLOOP.
+
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 3. COLLECT OPERATION (Dept-wise Salary Sum) =========='.
+FORMAT COLOR OFF.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Department', 'Total Salary'.
+FORMAT COLOR OFF.
+LOOP AT lt_dept_sum.
+  IF lt_dept_sum-emp_sal > 100000.
+    FORMAT COLOR COL_POSITIVE.
+  ELSEIF lt_dept_sum-emp_sal > 50000.
+    FORMAT COLOR COL_KEY.
+  ELSE.
+    FORMAT COLOR COL_NORMAL.
+  ENDIF.
+  WRITE: / lt_dept_sum-emp_dept,
+          lt_dept_sum-emp_sal.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 4. APPEND LINES OPERATION - Copying range of records to backup table
+*---------------------------------------------------------------------*
+REFRESH gt_backup.
+APPEND LINES OF gt_employee FROM 2 TO 5 TO gt_backup.
+
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 4. APPEND LINES (Records 2 to 5 to Backup Table) =========='.
+FORMAT COLOR OFF.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'INDEX', 'ID', 'NAME', 'CITY', 'SALARY'.
+FORMAT COLOR OFF.
+LOOP AT gt_backup.
+  IF sy-tabix MOD 2 = 0.
+    FORMAT COLOR COL_KEY.
+  ELSE.
+    FORMAT COLOR COL_NORMAL.
+  ENDIF.
+  WRITE: / sy-tabix, gt_backup-emp_id, gt_backup-emp_name,
+           gt_backup-emp_city, gt_backup-emp_sal.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 5. MODIFY OPERATION - Updating an existing record
+*---------------------------------------------------------------------*
+CLEAR gt_employee.
+gt_employee-emp_id = 999.
+gt_employee-emp_name = 'MODIFIED RECORD'.
+gt_employee-emp_city = 'NEW CITY'.
+gt_employee-emp_sal = 99999.
+gt_employee-emp_dept = 'UPDATED'.
+MODIFY gt_employee INDEX 4.
+
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 5. AFTER MODIFY OPERATION (Updated Index 4) =========='.
+FORMAT COLOR OFF.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'INDEX', 'ID', 'NAME', 'SALARY', 'DEPT'.
+FORMAT COLOR OFF.
+LOOP AT gt_employee.
+  IF sy-tabix = 4.
+    FORMAT COLOR COL_POSITIVE.
+  ELSEIF sy-tabix MOD 2 = 0.
+    FORMAT COLOR COL_KEY.
+  ELSE.
+    FORMAT COLOR COL_NORMAL.
+  ENDIF.
+  WRITE: / sy-tabix, gt_employee-emp_id, gt_employee-emp_name,
+           gt_employee-emp_sal, gt_employee-emp_dept.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 6. READ TABLE OPERATION - Reading records (multiple methods)
+*---------------------------------------------------------------------*
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 6. READ TABLE OPERATION =========='.
+FORMAT COLOR OFF.
+
+* Method 1: Reading by index
+CLEAR gt_employee.
+READ TABLE gt_employee INDEX 2.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Method 1 - Reading by Index 2:'.
+FORMAT COLOR COL_KEY.
+WRITE: / 'ID:', gt_employee-emp_id,
+        'Name:', gt_employee-emp_name,
+        'Salary:', gt_employee-emp_sal.
+
+* Method 2: Reading with key (using binary search after sorting)
+SORT gt_employee BY emp_id.
+CLEAR gt_employee.
+READ TABLE gt_employee WITH KEY emp_id = 105 BINARY SEARCH.
+IF sy-subrc = 0.
+  FORMAT COLOR COL_GROUP.
+  WRITE: / 'Method 2 - Reading with Binary Search (ID 105):'.
+  FORMAT COLOR COL_POSITIVE.
+  WRITE: / 'Record found at index:', sy-tabix.
+  WRITE: / 'Name:', gt_employee-emp_name, 'Dept:', gt_employee-emp_dept.
+ELSE.
+  FORMAT COLOR COL_NEGATIVE.
+  WRITE: / 'Record with ID 105 not found'.
+ENDIF.
+
+* Method 3: Reading with non-unique key
+CLEAR gt_employee.
+READ TABLE gt_employee WITH KEY emp_dept = 'IT'.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Method 3 - Reading with Non-Unique Key (First IT Dept):'.
+FORMAT COLOR COL_KEY.
+WRITE: / 'ID:', gt_employee-emp_id, 'Name:', gt_employee-emp_name.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 7. LOOP OPERATION - Various loop conditions
+*---------------------------------------------------------------------*
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 7. LOOP OPERATIONS =========='.
+FORMAT COLOR OFF.
+
+FORMAT COLOR COL_GROUP.
+WRITE: / 'IT Department Employees:'.
+FORMAT COLOR COL_KEY.
+LOOP AT gt_employee WHERE emp_dept = 'IT'.
+  WRITE: / gt_employee-emp_id, gt_employee-emp_name, gt_employee-emp_sal.
+ENDLOOP.
+
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Employees with Salary > 45000:'.
+FORMAT COLOR COL_POSITIVE.
+LOOP AT gt_employee WHERE emp_sal > 45000.
+  WRITE: / gt_employee-emp_id, gt_employee-emp_name, gt_employee-emp_sal.
+ENDLOOP.
+
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Employees from Mumbai or Delhi:'.
+FORMAT COLOR COL_KEY.
+LOOP AT gt_employee WHERE emp_city = 'Mumbai' OR emp_city = 'Delhi'.
+  WRITE: / gt_employee-emp_id, gt_employee-emp_name, gt_employee-emp_city.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 8. DELETE OPERATION - Deleting records
+*---------------------------------------------------------------------*
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 8. DELETE OPERATIONS =========='.
+FORMAT COLOR OFF.
+
+* Delete by index
+DELETE gt_employee INDEX 5.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'After deleting Index 5:'.
+FORMAT COLOR COL_KEY.
+LOOP AT gt_employee.
+  WRITE: / sy-tabix, gt_employee-emp_id, gt_employee-emp_name.
+ENDLOOP.
+
+* Delete with condition
+DELETE gt_employee WHERE emp_dept = 'Sales'.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'After deleting Sales department:'.
+FORMAT COLOR COL_NORMAL.
+LOOP AT gt_employee.
+  WRITE: / sy-tabix, gt_employee-emp_id, gt_employee-emp_name, gt_employee-emp_dept.
+ENDLOOP.
+
+* Delete adjacent duplicates (if any)
+DELETE ADJACENT DUPLICATES FROM gt_employee COMPARING emp_id.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'After deleting adjacent duplicates:'.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 9. MOVE OPERATION - Copying entire table
+*---------------------------------------------------------------------*
+DATA: gt_copy TYPE TABLE OF ty_employee WITH HEADER LINE.
+gt_copy[] = gt_employee[].
+
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 9. MOVE/COPY OPERATION =========='.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Copied table contains', sy-tfill, 'records'.
+FORMAT COLOR COL_KEY.
+LOOP AT gt_copy.
+  WRITE: / gt_copy-emp_id, gt_copy-emp_name, gt_copy-emp_city.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 10. CLEAR OPERATION - Clearing header line only
+*---------------------------------------------------------------------*
+CLEAR gt_employee.
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 10. CLEAR OPERATION (Header Line Only) =========='.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'After CLEAR, header line is empty:'.
+FORMAT COLOR COL_NEGATIVE.
+WRITE: / 'Header ID:', gt_employee-emp_id,
+        'Header Name:', gt_employee-emp_name.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'NOTE: Table body still contains data'.
+DESCRIBE TABLE gt_employee LINES lv_lines.
+WRITE: / 'Records still in table:', lv_lines.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 11. REFRESH OPERATION - Clearing table body
+*---------------------------------------------------------------------*
+REFRESH gt_employee.
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 11. REFRESH OPERATION (Clears Table Body) =========='.
+DESCRIBE TABLE gt_employee LINES lv_lines.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Records after REFRESH:', lv_lines.
+WRITE: / 'Table body is completely cleared.'.
+FORMAT COLOR COL_NEGATIVE.
+WRITE: / 'But header line still has previous values:'.
+WRITE: / 'Header ID:', gt_employee-emp_id.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 12. FREE OPERATION - Releasing memory
+*---------------------------------------------------------------------*
+FREE gt_employee.
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 12. FREE OPERATION (Releases Memory) =========='.
+DESCRIBE TABLE gt_employee LINES lv_lines.
+FORMAT COLOR COL_POSITIVE.
+WRITE: / 'Records after FREE:', lv_lines.
+WRITE: / 'Memory is completely released.'.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 13. DESCRIBE OPERATION - Getting table properties
+*---------------------------------------------------------------------*
+DATA: lv_lines_des TYPE i,
+      lv_occurs    TYPE i,
+      lv_kind      TYPE c.
+
+DESCRIBE TABLE gt_copy LINES lv_lines_des.
+DESCRIBE TABLE gt_copy OCCURS lv_occurs.
+DESCRIBE FIELD gt_copy TYPE lv_kind.
+
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 13. DESCRIBE OPERATION =========='.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Total lines in GT_COPY:', lv_lines_des.
+WRITE: / 'Initial size (OCCURS):', lv_occurs.
+WRITE: / 'Field type:', lv_kind.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 14. ADDITIONAL COLLECT EXAMPLE - City wise salary sum
+*---------------------------------------------------------------------*
+DATA: lt_city_sum TYPE TABLE OF ty_employee WITH HEADER LINE.
+REFRESH lt_city_sum.
+
+LOOP AT gt_copy.
+  lt_city_sum-emp_city = gt_copy-emp_city.
+  lt_city_sum-emp_sal = gt_copy-emp_sal.
+  COLLECT lt_city_sum.
+ENDLOOP.
+
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 14. ADDITIONAL COLLECT (City-wise Salary Sum) =========='.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'City', 'Total Salary'.
+LOOP AT lt_city_sum.
+  IF lt_city_sum-emp_sal > 100000.
+    FORMAT COLOR COL_POSITIVE.
+  ELSEIF lt_city_sum-emp_sal > 50000.
+    FORMAT COLOR COL_KEY.
+  ELSE.
+    FORMAT COLOR COL_NORMAL.
+  ENDIF.
+  WRITE: / lt_city_sum-emp_city, lt_city_sum-emp_sal.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 15. COMPLEX LOOP WITH CALCULATIONS
+*---------------------------------------------------------------------*
+lv_total_sal = 0.
+lv_count = 0.
+
+LOOP AT gt_copy.
+  lv_total_sal = lv_total_sal + gt_copy-emp_sal.
+  lv_count = lv_count + 1.
+ENDLOOP.
+
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 15. LOOP WITH CALCULATIONS =========='.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Total Employees:', lv_count.
+IF lv_count > 0.
+  WRITE: / 'Total Salary:', lv_total_sal.
+ENDIF.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 16. SORT AND DISPLAY
+*---------------------------------------------------------------------*
+SORT gt_copy BY emp_sal DESCENDING.
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 16. SORTED TABLE (By Salary Descending) =========='.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Top 3 Highest Paid Employees:'.
+FORMAT COLOR COL_POSITIVE.
+lv_count = 0.
+LOOP AT gt_copy.
+  lv_count = lv_count + 1.
+  WRITE: / gt_copy-emp_id, gt_copy-emp_name, gt_copy-emp_sal.
+  IF lv_count >= 3.
+    EXIT.
+  ENDIF.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.
+
+*---------------------------------------------------------------------*
+* 17. HEADER LINE BEHAVIOR DEMONSTRATION
+*---------------------------------------------------------------------*
+FORMAT COLOR COL_HEADING.
+WRITE: / '========== 17. HEADER LINE BEHAVIOR DEMO =========='.
+FORMAT COLOR OFF.
+
+CLEAR gt_employee.
+gt_employee-emp_id = 888.
+gt_employee-emp_name = 'Header Line Test'.
+
+FORMAT COLOR COL_GROUP.
+WRITE: / 'Header line values set - '.
+FORMAT COLOR COL_KEY.
+WRITE: 'ID:', gt_employee-emp_id, 'Name:', gt_employee-emp_name.
+
+APPEND gt_employee.
+FORMAT COLOR COL_GROUP.
+WRITE: / 'After APPEND, new record added to table:'.
+LOOP AT gt_employee.
+  FORMAT COLOR COL_POSITIVE.
+  WRITE: / 'Table record:', gt_employee-emp_id, gt_employee-emp_name.
+ENDLOOP.
+FORMAT COLOR OFF.
+ULINE.

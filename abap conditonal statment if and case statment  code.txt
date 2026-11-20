@@ -1,0 +1,37 @@
+REPORT Z_CONDITIONALSTATMENT.
+
+DATA MARKS TYPE I VALUE 85.
+DATA GRADE TYPE C.
+
+WRITE: 'Marks:', MARKS.
+
+* IF ELSEIF *
+IF MARKS >= 90.
+  GRADE = 'A'.
+  WRITE: / 'Grade: A (Excellent)'.
+ELSEIF MARKS >= 75.
+  GRADE = 'B'.
+  WRITE: / 'Grade: B (Good)'.
+ELSEIF MARKS >= 50.
+  GRADE = 'C'.
+  WRITE: / 'Grade: C (Average)'.
+ELSE.
+  GRADE = 'F'.
+  WRITE: / 'Grade: F (Fail)'.
+ENDIF.
+
+WRITE: / '-----------------------'.
+
+* CASE STATEMENT *
+CASE GRADE.
+  WHEN 'A'.
+    WRITE: / 'Result: Outstanding'.
+  WHEN 'B'.
+    WRITE: / 'Result: Good Performance'.
+  WHEN 'C'.
+    WRITE: / 'Result: Needs Improvement'.
+  WHEN 'F'.
+    WRITE: / 'Result: Failed'.
+  WHEN OTHERS.
+    WRITE: / 'Invalid Grade'.
+ENDCASE.
